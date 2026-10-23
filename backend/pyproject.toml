@@ -1,0 +1,33 @@
+[project]
+name = "ecochallenge-backend"
+version = "0.1.0"
+description = "EcoChallenge API: gamified sustainability challenges with AI-verified photo evidence"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.1",
+    "fastapi[standard]>=0.161.1",
+    "google-genai>=2.33.0",
+    "pwdlib[argon2]>=0.3.1",
+    "pydantic-settings>=2.16.1",
+    "pyjwt>=2.15.1",
+    "sqlmodel>=0.0.48",
+]
+
+[project.scripts]
+seed = "app.db.seed:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
