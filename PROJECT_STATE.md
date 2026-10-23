@@ -2,13 +2,14 @@
 
 > Living document. **Update at every milestone**, not continuously. A fresh agent should read this
 > one file and know exactly where the project stands.
-> Last updated: 2026-10-23 (frontend milestones 1–3: scaffold → all screens → design polish + a11y)
+> Last updated: 2026-10-23 (frontend milestones 1–4: scaffold → screens → polish + a11y → contract tests + live e2e)
 
 ## Where we are
 
-**Phase:** backend complete and frozen. **Frontend milestones 1–3 complete** — all screens built,
+**Phase:** backend complete and frozen. **Frontend milestones 1–4 complete** — all screens built,
 typed API client, TanStack Query layer, PWA shell, auth flow, design polish + accessibility pass,
-and 11 tests passing. `tsc`, `vite build`, and `vitest` all green.
+and 18 tests passing. `tsc`, `vite build`, and `vitest` all green. Live end-to-end verified through
+the Vite dev proxy (see the evidence table below).
 
 The backend is frozen except for defects. The frontend's complete interface lives in
 [frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md); that file, not the
@@ -75,7 +76,7 @@ unlocked once, the cooldown became active, and history recorded both attempts.
 - Profile: stats grid (points, rank, approved, CO2), editable display name, badge progress bars with target tracking.
 - Leaderboard: editorial list with tabular rank numerals, current-user mint highlight, tie semantics preserved.
 - Lazy-loaded routes with Suspense spinner.
-- vite build succeeds cleanly (1999 modules, code-split routes, self-hosted fonts); 11 Vitest tests pass.
+- vite build succeeds cleanly (1999 modules, code-split routes, self-hosted fonts); 11 Vitest tests pass at that milestone (18 now).
 - All convenience hooks added to queries.ts: useMe, useLogin, useRegister, useChallenges, useChallengeDetail, useProfile, useSubmissions, useLeaderboard, useMeta.
 
 ## Frontend milestone 3 (complete)
@@ -87,19 +88,36 @@ unlocked once, the cooldown became active, and history recorded both attempts.
   (transforms/count-ups dropped, fades kept), `aria-hidden` on decorative skeletons, `aria-live`
   verdict regions, `role=alert` errors, 44px minimum touch targets.
 - Service worker registered in production builds (app-shell only; `/api/*` never cached).
-- Verified: `tsc --noEmit` clean, 11 Vitest tests pass, `vite build` succeeds.
+- Verified: `tsc --noEmit` clean, 18 Vitest tests pass, `vite build` succeeds.
+
+## Frontend milestone 4 (complete) — contract tests + live e2e
+
+- Auth guard tests: `ProtectedRoute` renders children when authenticated, redirects to `/login`
+  when not; `PublicOnlyRoute` the inverse (4 tests).
+- Submission flow tests: multipart `FormData` to the exact contract path with CSRF header and no
+  Content-Type, returned profile applied instead of optimistic points (contract §7), logout clears
+  all TanStack Query caches (contract §8) (3 tests).
+- Live end-to-end through the Vite dev proxy (`http://127.0.0.1:5173`):
+  - register 201 + cookies → `/auth/me` 200 → `/challenges` 200 → `/profile` 200;
+  - `PATCH /auth/me` without CSRF **403** (detail mentions CSRF — the client retries once) →
+    with token **200**; logout without/with CSRF **403**/**204**; post-logout `/auth/me` **401**;
+  - multipart photo upload → Gemini live → **201 in 2.6 s**, `status: rejected`,
+    `confidence: 1.0`, concrete student-facing reason, `points_awarded: 0`, profile returned
+    with `submissions_rejected: 1`;
+  - one transient Google `500 INTERNAL` mapped by backend to contract `502` (no points, safe
+    retry) — retry reused the same errored row as documented.
 
 ## Not built yet
 
-- End-to-end integration testing against the live backend (visual review over the dev server).
+- Visual review of screens at 360 px + laptop widths (dev server + backend are running) in a browser.
 - Password reset / email verification (out of v1 scope).
 - Admin/audit portal, reward redemption, photo-metadata anti-spoofing (future enhancements).
 - Deployment artifacts (Docker/nginx/systemd) — waiting on the VPS decision.
 
 ## Next up
 
-1. Visual review over the dev server: register, browse challenges, submit a photo, check
-   approved/rejected states, profile, leaderboard (mobile 360px + laptop widths).
+1. Visual review in a browser at 360 px + laptop widths (dev server runs on :5173,
+   frontend on :8000 — both up) and on-device PWA install check.
 2. Revisit deployment once the VPS is confirmed.
 
 ## Known limitations (accepted for v1)
