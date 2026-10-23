@@ -14,16 +14,35 @@ and `auth/login`. Errors are `{"detail": "..."}`.
 
 ## Auth
 
+Two credentials are accepted:
+
+| Client | Credential | How |
+|---|---|---|
+| Browser SPA / PWA | httpOnly cookie `ecochallenge_access` + readable `ecochallenge_csrf` | Set by `register`/`login`; sent with `credentials: "include"` |
+| API clients, Swagger | `Authorization: Bearer <jwt>` | `access_token` from the login response |
+
+**Browser rules.**
+
+- Send cookies on every request (`credentials: "include"`).
+- Every state-changing request (`POST`, `PATCH`, `PUT`, `DELETE`) must also send
+  `X-CSRF-Token: <value of the ecochallenge_csrf cookie>`.
+- Never persist `access_token`. It exists for non-browser clients; the SPA ignores it.
+- Cookie attributes: `HttpOnly` on the access cookie, `SameSite=Lax`, `Secure` in production,
+  `Path=/`, 7-day lifetime. Bearer requests are exempt from CSRF.
+
 | Method | Path | Auth | Body | Returns |
 |---|---|---|---|---|
-| POST | `/auth/register` | — | `{email, password, display_name}` | `201` user + token |
-| POST | `/auth/login` | — | form: `username`(=email), `password` | `{access_token, token_type, user}` |
-| GET | `/auth/me` | bearer | — | current user |
-| PATCH | `/auth/me` | bearer | `{display_name?}` | updated user |
+| POST | `/auth/register` | — | `{email, password, display_name}` | `201` user + token, sets cookies |
+| POST | `/auth/login` | — | form: `username`(=email), `password` | `{access_token, token_type, expires_in, user}`, sets cookies |
+| POST | `/auth/logout` | cookie or bearer | — | `204`, clears cookies (CSRF required) |
+| GET | `/auth/me` | cookie or bearer | — | current user |
+| PATCH | `/auth/me` | cookie or bearer | `{display_name?}` | updated user |
 
-Login is an OAuth2 password form so Swagger's **Authorize** button works. Tokens expire after
-7 days and must carry an `exp` claim; there is no refresh token (see [decisions.md](decisions.md)).
-A disabled account gets `403` on login, and any request with its old token gets `401`.
+Login is an OAuth2 password form so Swagger's **Authorize** button keeps working. Tokens expire
+after 7 days and must carry an `exp` claim; there is no refresh token.
+A disabled account gets `403` on login; a missing, invalid, or expired credential gets `401`.
+
+CORS allows exactly the origins in `CORS_ORIGINS`, with credentials enabled.
 
 ## Challenges
 

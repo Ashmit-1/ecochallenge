@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -60,6 +61,47 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class CSRFMiddleware(BaseHTTPMiddleware):
+    """Double-submit cookie check for cookie-authenticated, state-changing requests.
+
+    Bearer requests are exempt: a token that the browser does not attach automatically cannot be
+    replayed cross-site. Login/register are exempt because no session exists yet.
+    """
+
+    SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
+
+    async def dispatch(self, request, call_next):  # noqa: ANN001
+        settings = get_settings()
+        exempt = {
+            f"{settings.api_v1_prefix}/auth/login",
+            f"{settings.api_v1_prefix}/auth/register",
+        }
+        uses_bearer = request.headers.get("authorization", "").lower().startswith("bearer ")
+        has_session_cookie = bool(request.cookies.get(settings.access_cookie_name))
+
+        if (
+            request.method not in self.SAFE_METHODS
+            and request.url.path not in exempt
+            and not uses_bearer
+            and has_session_cookie
+        ):
+            header_token = request.headers.get("x-csrf-token")
+            cookie_token = request.cookies.get(settings.csrf_cookie_name)
+            if (
+                not header_token
+                or not cookie_token
+                or not secrets.compare_digest(header_token, cookie_token)
+            ):
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": "CSRF validation failed. Reload the app and try again."
+                    },
+                )
+
+        return await call_next(request)
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     settings = get_settings()
@@ -87,6 +129,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         RequestBodyLimitMiddleware, overhead_bytes=_MULTIPART_OVERHEAD_BYTES
     )
+    app.add_middleware(CSRFMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

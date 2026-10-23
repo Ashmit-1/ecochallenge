@@ -15,6 +15,7 @@ uv run pytest tests/test_vision.py -v
 |---|---|
 | [conftest.py](conftest.py) | Fixtures: engine, session, seeded DB, `TestClient`, registered users, submit helper, PNG factory |
 | [test_auth.py](test_auth.py) | Register, duplicate email/name (case-insensitive), login, JWT rejection, rename |
+| [test_auth_cookies.py](test_auth_cookies.py) | httpOnly session cookie, CSRF header enforcement, logout, bearer exemption |
 | [test_challenges.py](test_challenges.py) | Seeded catalogue, points/cooldowns, anonymous vs personal state, inactive hiding |
 | [test_submissions.py](test_submissions.py) | Approve, reject, cooldown + expiry, cooldown-bypass regression, concurrent approvals, duplicate photos, invalid/empty/oversized images, provider outage + retry, pagination, private images |
 | [test_badges.py](test_badges.py) | Thresholds, progress caps, new-badge reporting, uniqueness of definitions |

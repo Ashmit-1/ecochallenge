@@ -45,6 +45,8 @@ uv run fastapi dev            # http://127.0.0.1:8000/docs
 ```
 
 The frontend is not built yet; the API is fully usable through the interactive docs at `/docs`.
+Its complete interface is specified in
+[frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md).
 
 ## Status
 

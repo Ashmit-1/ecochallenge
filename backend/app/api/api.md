@@ -19,7 +19,8 @@ The HTTP boundary. Routes parse input, call a service, and return a schema — n
 ## deps.py
 
 - `SessionDep` — one SQLAlchemy session per request, closed by the dependency.
-- `CurrentUser` / `OptionalUser` — decodes the bearer JWT, loads the user, enforces `is_active`.
+- `CurrentUser` / `OptionalUser` — reads the httpOnly session cookie (or a bearer token), loads
+  the user, enforces `is_active`. Explicit bearer wins if both are present.
 - `VisionDep` — the configured verification provider; tests override this dependency.
 
 ## Versioning

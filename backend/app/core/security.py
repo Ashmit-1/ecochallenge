@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -23,6 +24,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return _password_hasher.verify(plain_password, hashed_password)
     except Exception:  # malformed hash in DB must not 500 the login route
         return False
+
+
+def create_csrf_token() -> str:
+    """Random token for the double-submit CSRF check; readable by JavaScript on purpose."""
+    return secrets.token_urlsafe(32)
 
 
 def create_access_token(user_id: int, expires_minutes: int | None = None) -> tuple[str, int]:

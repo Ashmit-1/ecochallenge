@@ -23,15 +23,17 @@ the profile read is one row. Snapshot fields on submissions make history immutab
 **Cost.** Two sources of truth. Mitigated by updating both inside one transaction and by
 documenting the rebuild query (`SUM(points_awarded)` over approved submissions).
 
-## D3 — JWT access token only, no refresh token
+## D3 — JWT access token, cookie session, no refresh token
 
-**Context.** Students, low-stakes data, single deploy.
-**Decision.** HS256 JWT with a 7-day expiry, sent as `Authorization: Bearer`. No refresh tokens,
-no server-side session table.
+**Context.** Students, low-stakes data, single deploy, a browser SPA/PWA that must survive reloads.
+**Decision.** HS256 JWT with a 7-day expiry. Browsers receive it as an `HttpOnly` cookie; API
+clients and Swagger may use `Authorization: Bearer`. No refresh tokens and no server-side session
+table. Cookie sessions also carry a readable CSRF cookie and a double-submit header check (D16).
 **Why.** Stateless and adequate. Logout is client-side. Expiry is long enough that users rarely
 notice.
 **Cost.** A stolen token is valid until expiry and cannot be revoked individually. Acceptable
-for v1; a token-version column on `User` is the upgrade path.
+for v1; a token-version column on `User` is the upgrade path. The login response still returns the
+raw token for Swagger/API clients; the SPA is required to ignore and never store it.
 
 ## D4 — Gemini behind a `VisionProvider` interface
 
@@ -136,3 +138,17 @@ awarded points for it. Decoding also protects the paid Gemini call from junk inp
 prevents Starlette from spooling an unbounded body to disk before the handler can return 413.
 **Cost.** Pillow is one extra dependency, and a reverse proxy still needs `client_max_body_size`
 because a chunked request has no declared length.
+
+## D16 — httpOnly cookie session with double-submit CSRF
+
+**Context.** The frontend owner chose cookie auth over `localStorage` so an XSS bug cannot read the
+session token from storage.
+**Decision.** `access_token` is set as an `HttpOnly`, `SameSite=Lax`, `Secure`-in-production cookie.
+A second, JavaScript-readable `ecochallenge_csrf` cookie is compared against an `X-CSRF-Token`
+header on every unsafe method. Bearer requests are exempt (the browser does not attach them
+automatically, so they are not CSRF-replayable). CORS stays credential-enabled with explicit origins.
+**Why.** Double-submit is stateless and needs no extra table. `SameSite=Lax` blocks the common
+cross-site POST before the header check even runs.
+**Cost.** The SPA needs a fetch wrapper that adds the header and sets `credentials: "include"`.
+Cookies require HTTPS in production. If the frontend and API ever live on different registrable
+domains, `SameSite`/`Secure`/`COOKIE_DOMAIN` must be revisited.

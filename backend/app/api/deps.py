@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session
 
@@ -21,8 +21,8 @@ settings = get_settings()
 # SQLite stores signed 64-bit integers; larger values raise OverflowError at the driver.
 MAX_DB_INT = 9_223_372_036_854_775_807
 
-# tokenUrl is what Swagger's Authorize button posts to.
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_v1_prefix}/auth/login")
+# The OAuth2 scheme documents the bearer alternative in OpenAPI and keeps the Swagger
+# "Authorize" button working for API clients. Browsers authenticate with the httpOnly cookie.
 optional_oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl=f"{settings.api_v1_prefix}/auth/login", auto_error=False
 )
@@ -35,6 +35,11 @@ _CREDENTIALS_ERROR = HTTPException(
     detail="Could not validate credentials. Please log in again.",
     headers={"WWW-Authenticate": "Bearer"},
 )
+
+
+def _token_from_request(request: Request, bearer_token: str | None) -> str | None:
+    """Explicit bearer wins; otherwise fall back to the httpOnly session cookie."""
+    return bearer_token or request.cookies.get(settings.access_cookie_name)
 
 
 def _load_user_from_token(token: str, session: Session) -> User:
@@ -59,15 +64,23 @@ def _load_user_from_token(token: str, session: Session) -> User:
 
 
 def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep
+    request: Request,
+    bearer_token: Annotated[str | None, Depends(optional_oauth2_scheme)],
+    session: SessionDep,
 ) -> User:
+    token = _token_from_request(request, bearer_token)
+    if not token:
+        raise _CREDENTIALS_ERROR
     return _load_user_from_token(token, session)
 
 
 def get_optional_user(
-    token: Annotated[str | None, Depends(optional_oauth2_scheme)], session: SessionDep
+    request: Request,
+    bearer_token: Annotated[str | None, Depends(optional_oauth2_scheme)],
+    session: SessionDep,
 ) -> User | None:
-    """Anonymous access is allowed, but a *supplied* invalid token is rejected."""
+    """Anonymous access is allowed, but a *supplied* invalid credential is rejected."""
+    token = _token_from_request(request, bearer_token)
     if not token:
         return None
     return _load_user_from_token(token, session)

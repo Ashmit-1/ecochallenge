@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     uploads_dir: Path = Path("./uploads")
     max_upload_mb: int = 6
 
+    # --- Browser session cookies (frontend uses httpOnly cookies, not localStorage) ---
+    access_cookie_name: str = "ecochallenge_access"
+    csrf_cookie_name: str = "ecochallenge_csrf"
+    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+    cookie_domain: str | None = None
+    # None = secure only in production. Set explicitly only for unusual local HTTPS setups.
+    cookie_secure: bool | None = None
+
     vision_provider: Literal["gemini", "mock"] = "gemini"
     gemini_api_key: str = ""
     gemini_model: str = "gemma-4-26b-a4b-it"  # verified to support image + JSON schema
@@ -82,6 +90,14 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def use_secure_cookies(self) -> bool:
+        return self.cookie_secure if self.cookie_secure is not None else self.is_production
+
+    @property
+    def access_token_max_age(self) -> int:
+        return self.access_token_expire_minutes * 60
 
 
 @lru_cache

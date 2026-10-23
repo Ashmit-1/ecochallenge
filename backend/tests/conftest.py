@@ -111,6 +111,9 @@ def register(client: TestClient) -> Callable[..., RegisteredUser]:
         response = client.post("/api/v1/auth/register", json=payload)
         assert response.status_code == 201, response.text
         body = response.json()
+        # Registration also starts a cookie session. Most tests authenticate with the bearer
+        # token, so clear the jar to keep them from accidentally acting as that user.
+        client.cookies.clear()
         return RegisteredUser(
             user=body["user"],
             password=password,
