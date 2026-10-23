@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useProfile, useUpdateDisplayName } from "../lib/queries";
 import { Layout } from "../components/Layout";
-import { Card, Chip, Skeleton, EmptyState } from "../components/ui";
+import { Card, Chip, ProfileSkeleton, EmptyState } from "../components/ui";
 import { Button, Input } from "../components/ui";
 
 const badgeIconMap: Record<string, typeof Sprout> = {
@@ -53,9 +53,7 @@ export default function ProfilePage() {
     return (
       <Layout>
         <div className="py-6 space-y-4">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-32 w-full rounded-card" />
-          <Skeleton className="h-48 w-full rounded-card" />
+          <ProfileSkeleton />
         </div>
       </Layout>
     );
@@ -73,7 +71,7 @@ export default function ProfilePage() {
 
   return (
     <Layout>
-      <div className="py-6">
+      <div className="py-6 motion-rise">
         <div className="flex items-start justify-between mb-8">
           <div>
             {editing ? (
@@ -167,7 +165,7 @@ export default function ProfilePage() {
             const progress = badge.target > 0 ? Math.min(badge.current / badge.target, 1) : 0;
 
             return (
-              <Card key={badge.key} className={`relative ${badge.earned ? "" : "opacity-60"}`}>
+              <Card key={badge.key} className={`relative ${badge.earned ? "badge-unlock" : "opacity-60"}`}>
                 <div className="flex items-start gap-3">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${

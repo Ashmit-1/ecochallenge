@@ -101,7 +101,7 @@ export default function ChallengeDetailPage() {
   if (isError || !challenge) {
     return (
       <Layout>
-        <div className="py-6">
+        <div className="py-6 motion-rise">
           <p className="text-danger">Challenge not found.</p>
           <Link to="/challenges" className="text-moss underline mt-4 inline-block">
             Back to challenges
@@ -266,10 +266,12 @@ export default function ChallengeDetailPage() {
                 <div className="text-center py-4 space-y-4">
                   <CheckCircle2 size={48} className="mx-auto text-moss" strokeWidth={1.5} />
                   <h3 className="font-display text-xl font-semibold text-ink">Approved</h3>
-                  <p className="font-body text-ink-soft">
-                    You earned{" "}
-                    <span className="font-semibold text-ink tabular-nums">{result.points} points</span>.
-                  </p>
+                  <div className="points-reveal">
+                    <p className="font-body text-ink-soft">
+                      You earned{" "}
+                      <span className="font-semibold text-ink tabular-nums">{result.points} points</span>.
+                    </p>
+                  </div>
                   {result.reason && (
                     <p className="font-body text-ink-soft text-sm italic">"{result.reason}"</p>
                   )}

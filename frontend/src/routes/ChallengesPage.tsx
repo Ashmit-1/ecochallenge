@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Bike, Recycle, Sprout, Repeat, Sparkles, Clock, Leaf } from "lucide-react";
 import { useChallenges } from "../lib/queries";
 import { Layout } from "../components/Layout";
-import { Card, Chip, IconChip, Skeleton, EmptyState } from "../components/ui";
+import { Card, Chip, IconChip, ChallengeCardSkeleton, EmptyState } from "../components/ui";
 import type { Category } from "../types";
 
 const iconMap: Record<string, typeof Bike> = {
@@ -33,30 +33,12 @@ function formatCooldown(iso: string | null): string | null {
   return `${minutes}m`;
 }
 
-function ChallengeSkeleton() {
-  return (
-    <Card>
-      <div className="flex items-start gap-4">
-        <Skeleton className="w-10 h-10 rounded-full shrink-0" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-5 w-3/4" />
-          <Skeleton className="h-4 w-full" />
-          <div className="flex gap-2 pt-1">
-            <Skeleton className="h-6 w-16 rounded-full" />
-            <Skeleton className="h-6 w-20 rounded-full" />
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
 export default function ChallengesPage() {
   const { data: challenges, isLoading, isError } = useChallenges();
 
   return (
     <Layout>
-      <div className="py-6">
+      <div className="py-6 motion-rise">
         <h1 className="font-display text-3xl font-semibold text-ink mb-2">Challenges</h1>
         <p className="text-ink-soft font-body mb-8 max-w-[60ch]">
           Pick one, do it in the real world, prove it with a photo.
@@ -65,7 +47,7 @@ export default function ChallengesPage() {
         {isLoading && (
           <div className="flex flex-col gap-4">
             {[1, 2, 3].map((i) => (
-              <ChallengeSkeleton key={i} />
+              <ChallengeCardSkeleton key={i} />
             ))}
           </div>
         )}
@@ -98,7 +80,7 @@ export default function ChallengesPage() {
                   to={`/challenges/${challenge.slug}`}
                   className="block group"
                 >
-                  <Card className="group-hover:-translate-y-0.5 group-hover:border-moss/20 transition-all duration-200">
+                  <Card className="card-hover">
                     <div className="flex items-start gap-4">
                       <IconChip icon={Icon} />
                       <div className="flex-1 min-w-0">

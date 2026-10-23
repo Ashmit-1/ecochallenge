@@ -1,7 +1,7 @@
 # frontend/
 
-The React single-page PWA. **Milestones 1–2 complete** — scaffold, typed API client, TanStack Query
-layer, PWA shell, all six screens, auth flow, and tests are live.
+The React single-page PWA. **Milestones 1–3 complete** — scaffold, typed API client, TanStack Query
+layer, PWA shell, all six screens, auth flow, design polish + accessibility, and tests are live.
 See [src/src.md](src/src.md) for the source map.
 
 | Entry | Purpose |

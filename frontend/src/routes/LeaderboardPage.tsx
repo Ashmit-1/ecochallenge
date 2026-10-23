@@ -1,7 +1,7 @@
 import { Trophy, Medal, Sprout } from "lucide-react";
 import { useLeaderboard } from "../lib/queries";
 import { Layout } from "../components/Layout";
-import { Card, Skeleton, EmptyState, Chip } from "../components/ui";
+import { Card, LeaderboardRowSkeleton, EmptyState, Chip } from "../components/ui";
 
 export default function LeaderboardPage() {
   const { data: leaderboard, isLoading, isError } = useLeaderboard();
@@ -10,9 +10,9 @@ export default function LeaderboardPage() {
     return (
       <Layout>
         <div className="py-6 space-y-3">
-          <Skeleton className="h-8 w-40" />
+          <div className="h-8 w-40 animate-pulse bg-line rounded-control" aria-hidden="true" />
           {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-card" />
+            <LeaderboardRowSkeleton key={i} />
           ))}
         </div>
       </Layout>
@@ -45,7 +45,7 @@ export default function LeaderboardPage() {
 
   return (
     <Layout>
-      <div className="py-6">
+      <div className="py-6 motion-rise">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-display text-3xl font-semibold text-ink">Leaderboard</h1>

@@ -125,7 +125,56 @@ export function IconChip({ icon: Icon, className = "" }: IconChipProps) {
 // --- Skeleton ---
 
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse bg-line rounded-control ${className}`} />;
+  return <div className={`animate-pulse bg-line rounded-control ${className}`} aria-hidden="true" />;
+}
+
+// Shaped skeletons matching real card anatomy (design.md §5)
+
+export function ChallengeCardSkeleton() {
+  return (
+    <div className="bg-surface rounded-card border border-line shadow-card p-5" aria-hidden="true">
+      <div className="flex items-start gap-4">
+        <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+        <div className="flex-1 space-y-3">
+          <Skeleton className="h-5 w-3/4" />
+          <Skeleton className="h-4 w-full" />
+          <div className="flex gap-2 pt-1">
+            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function LeaderboardRowSkeleton() {
+  return (
+    <div className="bg-surface rounded-card border border-line p-4 flex items-center gap-4" aria-hidden="true">
+      <Skeleton className="w-8 h-8 rounded-full" />
+      <Skeleton className="h-5 w-32 flex-1" />
+      <Skeleton className="h-5 w-16" />
+    </div>
+  );
+}
+
+export function ProfileSkeleton() {
+  return (
+    <div className="space-y-6 py-6" aria-hidden="true">
+      <div className="flex items-center gap-4">
+        <Skeleton className="w-16 h-16 rounded-full" />
+        <div className="space-y-2 flex-1">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-20 rounded-card" />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // --- EmptyState ---
@@ -139,14 +188,57 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-5 text-center">
-      <div className="w-16 h-16 rounded-full bg-mint flex items-center justify-center mb-4">
-        <Icon size={28} strokeWidth={1.5} className="text-leaf" />
+    <div className="flex flex-col items-center justify-center py-16 px-5 text-center motion-rise">
+      <div className="w-24 h-24 mb-4" aria-hidden="true">
+        <BotanicalSprout />
+      </div>
+      <div className="w-10 h-10 rounded-full bg-mint flex items-center justify-center mb-3">
+        <Icon size={20} strokeWidth={1.75} className="text-moss" />
       </div>
       <h3 className="font-display text-xl font-semibold text-ink mb-2">{title}</h3>
       <p className="text-ink-soft font-body max-w-[40ch] mb-6">{description}</p>
       {action}
     </div>
+  );
+}
+
+// Hand-drawn botanical accent (design.md §3): 1.5px stroke, rounded caps
+
+export function BotanicalSprout({ small = false }: { small?: boolean }) {
+  const stroke = 1.5;
+  const size = small ? 40 : 96;
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 96 96"
+      width={size}
+      height={size}
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M48 82 C48 62 48 52 44 40"
+        stroke="#6FA98A"
+        strokeWidth={stroke + 0.7}
+        strokeLinecap="round"
+      />
+      <path
+        d="M44 50 C30 44 24 30 30 16 C40 22 46 36 44 50 Z"
+        fill="#DCEBE2"
+        stroke="#2F6B4F"
+        strokeWidth={stroke}
+        strokeLinejoin="round"
+      />
+      <path
+        d="M45 44 C58 38 66 24 62 10 C52 14 46 30 45 44 Z"
+        fill="#6FA98A"
+        stroke="#2F6B4F"
+        strokeWidth={stroke}
+        strokeLinejoin="round"
+      />
+      <path d="M34 84 C42 80 54 80 62 84" stroke="#E2E0D6" strokeWidth={stroke + 0.5} strokeLinecap="round" />
+      <path d="M40 88 C44 86 52 86 56 88" stroke="#E2E0D6" strokeWidth={stroke + 0.5} strokeLinecap="round" />
+    </svg>
   );
 }
 

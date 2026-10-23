@@ -19,6 +19,15 @@ const queryClient = new QueryClient({
   },
 });
 
+// PWA: register the app-shell service worker (contract §8: never caches /api/*)
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // offline shell unavailable — app still works online
+    });
+  });
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
