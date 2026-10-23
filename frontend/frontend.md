@@ -1,12 +1,13 @@
 # frontend/
 
-The React single-page PWA. **Not started yet** — this folder currently contains documentation only,
-so the next session can begin without guessing.
+The React single-page PWA. **Milestone 1 complete** — scaffold, typed API client, TanStack Query
+layer, PWA shell, and tests are live. See [src/src.md](src/src.md) for the source map.
 
-| File | Purpose |
+| Entry | Purpose |
 |---|---|
 | [frontend-backend-contract.md](frontend-backend-contract.md) | **The only source of truth about the backend.** Auth, endpoints, types, errors, PWA rules |
 | [design.md](design.md) | Visual direction, palette, type, layout, states, motion, accessibility, anti-patterns |
+| [src/src.md](src/src.md) | Source tree navigation |
 
 ## Locked decisions
 

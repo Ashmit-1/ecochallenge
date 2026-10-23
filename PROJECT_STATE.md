@@ -2,7 +2,7 @@
 
 > Living document. **Update at every milestone**, not continuously. A fresh agent should read this
 > one file and know exactly where the project stands.
-> Last updated: 2026-10-23 (backend complete, cookie auth added, frontend contract + design ready)
+> Last updated: 2026-10-23 (frontend milestone 1: scaffold + API client + TanStack Query + PWA shell)
 
 ## Where we are
 
@@ -65,7 +65,8 @@ unlocked once, the cooldown became active, and history recorded both attempts.
 
 ## Not built yet
 
-- Entire frontend (next session; see [frontend/frontend.md](frontend/frontend.md)).
+- Frontend milestone 1 complete: scaffold, API client, TanStack Query, PWA shell, tests (see [frontend/frontend.md](frontend/frontend.md)).
+- Frontend screens: auth, challenges, submit, profile, leaderboard (not yet built).
 - Password reset / email verification (out of v1 scope).
 - Admin/audit portal, reward redemption, photo-metadata anti-spoofing (future enhancements).
 - Deployment artifacts (Docker/nginx/systemd) — waiting on the VPS decision.

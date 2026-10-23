@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+/* Fresh Botanical theme tokens — design.md §9 */
+@theme {
+  --color-paper: #f7f5ee;
+  --color-surface: #ffffff;
+  --color-ink: #16261e;
+  --color-ink-soft: #4a5b51;
+  --color-moss: #2f6b4f;
+  --color-leaf: #6fa98a;
+  --color-mint: #dcebe2;
+  --color-sun: #e9b44c;
+  --color-clay: #c4704f;
+  --color-danger: #a63d2f;
+  --color-line: #e2e0d6;
+
+  --radius-control: 14px;
+  --radius-card: 22px;
+  --radius-sheet: 28px;
+
+  --shadow-card: 0 1px 2px rgb(22 38 30 / .06), 0 12px 32px -16px rgb(22 38 30 / .18);
+
+  --font-display: "Fraunces Variable", serif;
+  --font-body: "Figtree Variable", sans-serif;
+}
+
+/* Base styles */
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+/* Tabular numerals for points, ranks, countdowns */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

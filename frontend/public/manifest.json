@@ -1,0 +1,27 @@
+{
+  "name": "EcoChallenge",
+  "short_name": "EcoChallenge",
+  "description": "Small actions made visible. Pick an eco challenge, do it, prove it with a photo.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#2F6B4F",
+  "background_color": "#F7F5EE",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
