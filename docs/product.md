@@ -32,8 +32,8 @@ them as such. They exist to make impact tangible, not to be audited.
 ## Points
 
 Awarded equal to the challenge's point value at the moment of approval, snapshotted on the
-submission. Ties on the leaderboard break by account age (earlier account ranks higher), so the
-order is stable.
+submission. Students on equal points **share a rank**; the displayed order within a tie is by
+account age, so the list is stable without inventing a difference in score.
 
 ## Badges
 
