@@ -144,3 +144,57 @@ describe("useLogout (contract §8: clear caches)", () => {
     expect(init.method).toBe("POST");
   });
 });
+describe("useSubmitEvidence header sync (audit finding #4)", () => {
+  beforeEach(() => {
+    globalThis.fetch = vi.fn();
+    Object.defineProperty(document, "cookie", {
+      writable: true,
+      value: "ecochallenge_csrf=csrf-token-1",
+    });
+  });
+
+  it("mirrors the returned profile points into the `me` cache so the header chip updates", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: () =>
+        Promise.resolve({ submission, profile: updatedProfile, new_badges: [badge] }),
+    });
+
+    const { client, wrapper } = createWrapper();
+    const meBefore = {
+      id: 7,
+      email: "s@campus.edu",
+      display_name: "Student",
+      points_total: 0,
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    client.setQueryData(["auth", "me"], meBefore);
+    client.setQueryData(["profile"], oldProfile);
+
+    const file = new File(["photo-bytes"], "bike-campus.jpg", { type: "image/jpeg" });
+    const { result } = renderHook(() => useSubmitEvidence("bike-to-campus"), { wrapper });
+    await result.current.mutateAsync(file);
+
+    const me = client.getQueryData(["auth", "me"]) as typeof meBefore;
+    expect(me.points_total).toBe(updatedProfile.points_total); // 50 from server response
+    expect(me.id).toBe(7); // other fields untouched
+    expect(client.getQueryData(["profile"])).toEqual(updatedProfile);
+  });
+
+  it("leaves `me` untouched when it is not cached (logged-out edge)", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: () =>
+        Promise.resolve({ submission, profile: updatedProfile, new_badges: [] }),
+    });
+
+    const { client, wrapper } = createWrapper();
+    const file = new File(["photo-bytes"], "bike-campus.jpg", { type: "image/jpeg" });
+    const { result } = renderHook(() => useSubmitEvidence("bike-to-campus"), { wrapper });
+    await result.current.mutateAsync(file);
+
+    expect(client.getQueryData(["auth", "me"])).toBeUndefined();
+  });
+});

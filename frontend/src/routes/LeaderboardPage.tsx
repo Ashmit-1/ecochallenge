@@ -60,7 +60,6 @@ export default function LeaderboardPage() {
 
         <div className="flex flex-col gap-2">
           {leaderboard.entries.map((entry) => {
-            const isTop3 = entry.rank <= 3;
             const RankIcon = entry.rank === 1 ? Trophy : entry.rank <= 3 ? Medal : null;
 
             return (
@@ -70,11 +69,17 @@ export default function LeaderboardPage() {
                   entry.is_current_user ? "bg-mint border-moss/20" : ""
                 }`}
               >
-                {/* Rank */}
-                <div className="w-10 flex items-center justify-center shrink-0">
-                  {RankIcon ? (
+                {/* Rank: the numeral is always shown (ties like 1,1,3 must stay
+                    visible — contract §7, design §4), icons are decorative accents */}
+                <div className="w-14 flex items-center justify-center gap-1 shrink-0">
+                  <span className="font-display text-xl font-semibold text-ink tabular-nums">
+                    {entry.rank}
+                  </span>
+                  {RankIcon && (
                     <RankIcon
-                      size={22}
+                      size={15}
+                      strokeWidth={1.75}
+                      aria-hidden="true"
                       className={
                         entry.rank === 1
                           ? "text-sun"
@@ -83,10 +88,6 @@ export default function LeaderboardPage() {
                             : "text-clay"
                       }
                     />
-                  ) : (
-                    <span className="font-display text-xl font-semibold text-ink tabular-nums">
-                      {entry.rank}
-                    </span>
                   )}
                 </div>
 
@@ -99,7 +100,7 @@ export default function LeaderboardPage() {
                   >
                     {entry.display_name}
                     {entry.is_current_user && (
-                      <span className="ml-2 text-xs font-normal text-moss/70">You</span>
+                      <span className="ml-2 text-xs font-normal text-moss">You</span>
                     )}
                   </p>
                   <p className="text-xs text-ink-soft font-body">

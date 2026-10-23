@@ -14,8 +14,10 @@ import {
   Clock,
   Info,
   Award,
+  Leaf,
 } from "lucide-react";
 import { useChallengeDetail, useSubmitEvidence } from "../lib/queries";
+import { formatCooldown, useNow } from "../lib/format";
 import { Layout } from "../components/Layout";
 import { Card, Chip, Button, Skeleton } from "../components/ui";
 import type { Badge } from "../types";
@@ -43,9 +45,15 @@ export default function ChallengeDetailPage() {
     reason: string | null;
     newBadges: Badge[];
   } | null>(null);
+  const now = useNow(30_000);
 
+  // Revoke the PREVIOUS preview on replacement/unmount. Revoking inside the effect
+  // body killed the freshly created URL before <img> could decode it (and leaked the
+  // final one), producing broken previews.
   useEffect(() => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
   }, [previewUrl]);
 
   if (!slug) return null;
@@ -64,7 +72,7 @@ export default function ChallengeDetailPage() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile || submitMutation.isPending) return; // double-submit guard (contract §5)
     setSubmitError("");
     try {
       const res = await submitMutation.mutateAsync(selectedFile);
@@ -75,11 +83,20 @@ export default function ChallengeDetailPage() {
         newBadges: res.new_badges,
       });
     } catch (err: unknown) {
-      const apiErr = err as { status?: number; detail?: string };
+      const apiErr = err as { status?: number; detail?: string; retryAfterSeconds?: number | null };
       if (apiErr?.status === 409) setSubmitError("This exact photo was already submitted. Take a new one.");
       else if (apiErr?.status === 413) setSubmitError("File too large (max 6 MB).");
       else if (apiErr?.status === 415) setSubmitError("Not a valid image. Use JPEG, PNG, or WebP at least 200×200 px.");
-      else if (apiErr?.status === 429) setSubmitError(apiErr.detail || "Cooldown active. Wait before submitting again.");
+      else if (apiErr?.status === 429) {
+        const ra = apiErr.retryAfterSeconds;
+        const wait =
+          ra != null
+            ? ra >= 60
+              ? ` You can try again in about ${Math.ceil(ra / 60)} min.`
+              : ` You can try again in ${ra} s.`
+            : "";
+        setSubmitError((apiErr.detail || "Cooldown active. Wait before submitting again.") + wait);
+      }
       else if (apiErr?.status === 502) setSubmitError("Verification service unavailable. No points awarded — try again later.");
       else setSubmitError(apiErr?.detail || "Submission failed. Try again.");
     }
@@ -148,6 +165,10 @@ export default function ChallengeDetailPage() {
             <Chip color="moss">Completed {challenge.times_completed}×</Chip>
           )}
         </div>
+        <p className="-mt-5 mb-8 text-xs text-ink-soft font-body max-w-[70ch]">
+          <Leaf size={12} className="inline -mt-0.5 mr-1" aria-hidden="true" />
+          CO2 estimate: {challenge.co2_note}
+        </p>
 
         <Card className="mb-6">
           <h2 className="font-display text-lg font-semibold text-ink mb-3">About this challenge</h2>
@@ -174,11 +195,24 @@ export default function ChallengeDetailPage() {
               <div>
                 <p className="font-body text-ink font-medium">Cooldown active</p>
                 <p className="font-body text-ink-soft text-sm">
-                  You can submit this challenge again after{" "}
-                  {challenge.cooldown_ends_at
-                    ? new Date(challenge.cooldown_ends_at).toLocaleString()
-                    : "the cooldown period ends"}
-                  .
+                  {(() => {
+                    const remaining = formatCooldown(challenge.cooldown_ends_at, now);
+                    if (!remaining)
+                      return <>You can submit this challenge again once the cooldown clears.</>;
+                    return (
+                      <>
+                        You can submit again in <span className="tabular-nums">{remaining}</span>
+                        {challenge.cooldown_ends_at && (
+                          <>
+                            {" "}(<time dateTime={challenge.cooldown_ends_at}>
+                              {new Date(challenge.cooldown_ends_at).toLocaleString()}
+                            </time>)
+                          </>
+                        )}
+                        .
+                      </>
+                    );
+                  })()}
                 </p>
               </div>
             </div>

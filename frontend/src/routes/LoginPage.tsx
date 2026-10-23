@@ -16,6 +16,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loginMutation.isPending) return; // double-submit guard (contract §5)
     setError("");
     if (!email.trim() || !password) {
       setError("Email and password are required.");

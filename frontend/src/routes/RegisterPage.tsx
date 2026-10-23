@@ -16,17 +16,23 @@ export default function RegisterPage() {
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
+    // Chained checks: an empty field must say "required", not jump to a length rule
     if (!email.trim()) errs.email = "Email is required.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+      errs.email = "Enter a valid email address.";
     if (!displayName.trim()) errs.displayName = "Display name is required.";
-    if (displayName.trim().length < 2) errs.displayName = "At least 2 characters.";
-    if (password.length < 8) errs.password = "At least 8 characters.";
-    if (password !== confirmPassword) errs.confirmPassword = "Passwords do not match.";
+    else if (displayName.trim().length < 2) errs.displayName = "At least 2 characters.";
+    if (!password) errs.password = "Password is required.";
+    else if (password.length < 8) errs.password = "At least 8 characters.";
+    if (!confirmPassword) errs.confirmPassword = "Please confirm your password.";
+    else if (password !== confirmPassword) errs.confirmPassword = "Passwords do not match.";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (registerMutation.isPending) return;
     if (!validate()) return;
     try {
       await registerMutation.mutateAsync({

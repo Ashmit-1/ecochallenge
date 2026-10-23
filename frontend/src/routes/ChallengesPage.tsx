@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Bike, Recycle, Sprout, Repeat, Sparkles, Clock, Leaf } from "lucide-react";
 import { useChallenges } from "../lib/queries";
+import { formatCooldown, useNow } from "../lib/format";
 import { Layout } from "../components/Layout";
 import { Card, Chip, IconChip, ChallengeCardSkeleton, EmptyState } from "../components/ui";
 import type { Category } from "../types";
@@ -21,20 +22,10 @@ const categoryLabels: Record<Category, string> = {
   community: "Community",
 };
 
-function formatCooldown(iso: string | null): string | null {
-  if (!iso) return null;
-  const ends = new Date(iso).getTime();
-  const now = Date.now();
-  const diffMs = ends - now;
-  if (diffMs <= 0) return null;
-  const hours = Math.floor(diffMs / 3_600_000);
-  const minutes = Math.floor((diffMs % 3_600_000) / 60_000);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
 export default function ChallengesPage() {
   const { data: challenges, isLoading, isError } = useChallenges();
+  // Recompute countdown labels every 30 s so a cooldown cannot freeze or linger after expiry
+  const now = useNow(30_000);
 
   return (
     <Layout>
@@ -72,7 +63,8 @@ export default function ChallengesPage() {
           <div className="flex flex-col gap-4">
             {challenges.map((challenge) => {
               const Icon = iconMap[challenge.icon] ?? Sprout;
-              const cooldownText = formatCooldown(challenge.cooldown_ends_at);
+              const cooldownText = formatCooldown(challenge.cooldown_ends_at, now);
+              const onCooldown = !challenge.can_submit;
 
               return (
                 <Link
@@ -85,10 +77,10 @@ export default function ChallengesPage() {
                       <IconChip icon={Icon} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-3 mb-1">
-                          <h2 className="font-display text-lg font-semibold text-ink leading-tight">
+                          <h2 className="font-display text-lg font-semibold text-ink leading-tight truncate">
                             {challenge.title}
                           </h2>
-                          <Chip color="sun">+{challenge.points} pts</Chip>
+                          <Chip color="sun" className="shrink-0">+{challenge.points} pts</Chip>
                         </div>
                         <p className="text-ink-soft font-body text-sm mb-3 line-clamp-1">
                           {challenge.tagline}
@@ -96,16 +88,20 @@ export default function ChallengesPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <Chip color="leaf">{categoryLabels[challenge.category]}</Chip>
                           <Chip color="mint" icon={Leaf}>
-                            ~{challenge.co2_saved_grams}g CO₂
+                            ~{challenge.co2_saved_grams}g CO₂ estimated
                           </Chip>
                           {challenge.times_completed > 0 && (
                             <Chip color="moss">
                               Done {challenge.times_completed}×
                             </Chip>
                           )}
-                          {cooldownText && (
+                          {onCooldown ? (
                             <Chip color="sun" icon={Clock}>
-                              Again in {cooldownText}
+                              {cooldownText ? `Again in ${cooldownText}` : "On cooldown"}
+                            </Chip>
+                          ) : (
+                            <Chip color="moss" icon={Sprout}>
+                              Ready
                             </Chip>
                           )}
                         </div>

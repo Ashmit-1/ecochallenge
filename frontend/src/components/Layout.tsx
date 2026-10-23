@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Sprout, Trophy, User, LogOut, Loader2 } from "lucide-react";
-import { useMe, useLogout, queryKeys } from "../lib/queries";
+import { useMe, useLogout, useMeta } from "../lib/queries";
 import { useQueryClient } from "@tanstack/react-query";
 import { Chip } from "./ui";
 
@@ -21,14 +21,19 @@ function NavItem({ to, label, icon: Icon }: { to: string; label: string; icon: t
         }`
       }
     >
-      <Icon size={22} strokeWidth={isActive ? 2 : 1.75} />
-      <span>{label}</span>
+      {({ isActive }) => (
+        <>
+          <Icon size={22} strokeWidth={isActive ? 2 : 1.75} />
+          <span>{label}</span>
+        </>
+      )}
     </NavLink>
   );
 }
 
 export function Layout({ children }: { children: ReactNode }) {
   const { data: user } = useMe();
+  const { data: meta } = useMeta(); // /meta disclaimers (contract §7)
   const logoutMutation = useLogout();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -91,6 +96,16 @@ export function Layout({ children }: { children: ReactNode }) {
       <main className="flex-1 w-full max-w-[1120px] mx-auto px-5 md:px-8 pb-24 md:pb-8">
         {children}
       </main>
+
+      {/* Honest disclaimers (design §7): CO2 figures are estimates, AI checks can be wrong.
+          Exact strings come from GET /meta per the contract. */}
+      {meta && (
+        <footer className="w-full max-w-[1120px] mx-auto px-5 md:px-8 pb-20 md:pb-6">
+          <p className="text-xs text-ink-soft font-body leading-relaxed border-t border-line pt-4">
+            {meta.environmental_disclaimer} {meta.verification_disclaimer}
+          </p>
+        </footer>
+      )}
 
       {/* Mobile bottom tab bar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-line flex items-center justify-around py-2 px-4 z-50">

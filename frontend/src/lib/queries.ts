@@ -75,8 +75,8 @@ export function challengeDetailQuery(slug: string) {
 
 export function submissionsQuery(params?: { limit?: number; offset?: number }) {
   const searchParams = new URLSearchParams();
-  if (params?.limit) searchParams.set("limit", String(params.limit));
-  if (params?.offset) searchParams.set("offset", String(params.offset));
+  if (params?.limit != null) searchParams.set("limit", String(params.limit));
+  if (params?.offset != null) searchParams.set("offset", String(params.offset));
   const qs = searchParams.toString();
   return queryOptions({
     queryKey: queryKeys.submissions.list(params),
@@ -93,8 +93,8 @@ export const profileQuery = queryOptions({
 
 export function leaderboardQuery(params?: { limit?: number; offset?: number }) {
   const searchParams = new URLSearchParams();
-  if (params?.limit) searchParams.set("limit", String(params.limit));
-  if (params?.offset) searchParams.set("offset", String(params.offset));
+  if (params?.limit != null) searchParams.set("limit", String(params.limit));
+  if (params?.offset != null) searchParams.set("offset", String(params.offset));
   const qs = searchParams.toString();
   return queryOptions({
     queryKey: queryKeys.leaderboard(params),
@@ -119,6 +119,11 @@ export function useSubmitEvidence(slug: string) {
     onSuccess: (data) => {
       // Update profile cache directly from submission response (contract §7)
       qc.setQueryData(queryKeys.profile, data.profile);
+      // Keep the header points chip in sync with the server-returned total (contract §7:
+      // points come from the response profile — this mirrors it into `me`, never adds optimistically)
+      qc.setQueryData(queryKeys.me, (prev: User | undefined) =>
+        prev ? { ...prev, points_total: data.profile.points_total } : prev,
+      );
       // Invalidate challenges to refresh can_submit / cooldown state
       qc.invalidateQueries({ queryKey: queryKeys.challenges.all });
       // Invalidate submissions list
