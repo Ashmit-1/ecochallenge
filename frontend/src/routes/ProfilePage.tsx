@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Sprout,
   Footprints,
@@ -13,11 +15,87 @@ import {
   Pencil,
   Check,
   X,
+  LogOut,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Clock,
 } from "lucide-react";
-import { useProfile, useUpdateDisplayName } from "../lib/queries";
+import { useProfile, useUpdateDisplayName, useSubmissions, useLogout } from "../lib/queries";
+import { loadEvidence, ApiError } from "../lib/api";
 import { Layout } from "../components/Layout";
-import { Card, Chip, ProfileSkeleton, EmptyState } from "../components/ui";
+import { Card, ProfileSkeleton, EmptyState, Skeleton } from "../components/ui";
 import { Button, Input } from "../components/ui";
+import type { Submission } from "../types";
+
+const submissionStatus: Record<
+  Submission["status"],
+  { label: string; icon: typeof CheckCircle2; className: string }
+> = {
+  approved: { label: "Approved", icon: CheckCircle2, className: "bg-mint text-moss" },
+  rejected: { label: "Rejected", icon: XCircle, className: "bg-clay/15 text-clay" },
+  error: { label: "Not verified", icon: AlertCircle, className: "bg-danger/10 text-danger" },
+  pending: { label: "Waiting", icon: Clock, className: "bg-sun/15 text-ink" },
+};
+
+// Evidence thumbnail loaded per contract §6: cookies included, blob URL revoked on unmount.
+function HistoryRow({ sub }: { sub: Submission }) {
+  const [thumb, setThumb] = useState<string | null>(null);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    loadEvidence(sub.image_url)
+      .then((url) => {
+        if (cancelled) URL.revokeObjectURL(url);
+        else {
+          objectUrl = url;
+          setThumb(url);
+        }
+      })
+      .catch(() => {
+        // thumbnail is decorative; text status still tells the story
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [sub.image_url]);
+
+  const status = submissionStatus[sub.status] ?? submissionStatus.pending;
+  const StatusIcon = status.icon;
+
+  return (
+    <div className="flex items-center gap-4 py-3">
+      {thumb ? (
+        <img
+          src={thumb}
+          alt=""
+          className="w-12 h-12 rounded-control object-cover border border-line shrink-0"
+        />
+      ) : (
+        <Skeleton className="w-12 h-12 rounded-control shrink-0" />
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="font-body text-sm font-medium text-ink truncate">{sub.challenge.title}</p>
+        <p className="text-xs text-ink-soft font-body">
+          <time dateTime={sub.created_at}>
+            {new Date(sub.created_at).toLocaleString()}
+          </time>
+          {sub.status === "approved" && (
+            <>{" · "}+{sub.points_awarded} pts</>
+          )}
+        </p>
+      </div>
+      <span
+        className={`inline-flex items-center gap-1.5 text-xs font-body font-medium px-2.5 py-1 rounded-full shrink-0 ${status.className}`}
+      >
+        <StatusIcon size={13} strokeWidth={1.75} aria-hidden="true" />
+        {status.label}
+      </span>
+    </div>
+  );
+}
 
 const badgeIconMap: Record<string, typeof Sprout> = {
   sprout: Sprout,
@@ -31,21 +109,47 @@ const badgeIconMap: Record<string, typeof Sprout> = {
 export default function ProfilePage() {
   const { data: profile, isLoading, isError } = useProfile();
   const updateName = useUpdateDisplayName();
+  const {
+    data: submissions,
+    isLoading: subsLoading,
+    isError: subsError,
+  } = useSubmissions({ limit: 20 });
+  const logout = useLogout();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState("");
+  const [renameError, setRenameError] = useState("");
+  const [logoutError, setLogoutError] = useState("");
 
   const startEdit = () => {
     if (profile) setNewName(profile.display_name);
+    setRenameError("");
     setEditing(true);
   };
 
   const saveEdit = async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || updateName.isPending) return;
+    setRenameError("");
     try {
       await updateName.mutateAsync(newName.trim());
       setEditing(false);
+    } catch (err) {
+      // Surface the server's reason (409 duplicate display name, 422 validation — contract §2)
+      setRenameError(
+        err instanceof ApiError ? err.detail : "Could not save your display name. Try again.",
+      );
+    }
+  };
+
+  const handleLogout = async () => {
+    setLogoutError("");
+    try {
+      await logout.mutateAsync();
+      queryClient.clear(); // contract §8 (also done in the mutation's onSuccess; belt and braces)
+      navigate("/login", { replace: true });
     } catch {
-      // error handled by mutation
+      setLogoutError("Could not sign out. Check your connection and try again.");
     }
   };
 
@@ -85,7 +189,14 @@ export default function ProfilePage() {
                 <Button onClick={saveEdit} disabled={updateName.isPending} className="mt-5">
                   <Check size={16} />
                 </Button>
-                <Button variant="secondary" onClick={() => setEditing(false)} className="mt-5">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setEditing(false);
+                    setRenameError("");
+                  }}
+                  className="mt-5"
+                >
                   <X size={16} />
                 </Button>
               </div>
@@ -102,6 +213,11 @@ export default function ProfilePage() {
                   <Pencil size={16} strokeWidth={1.75} />
                 </button>
               </div>
+            )}
+            {renameError && (
+              <p className="text-sm text-danger font-body mt-1" role="alert">
+                {renameError}
+              </p>
             )}
             <p className="text-ink-soft font-body mt-1">{profile.email}</p>
             <p className="text-ink-soft font-body text-sm mt-1">
@@ -169,7 +285,7 @@ export default function ProfilePage() {
                 <div className="flex items-start gap-3">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                      badge.earned ? "bg-sun/15 text-sun" : "bg-line text-ink-soft"
+                      badge.earned ? "bg-sun/30 text-ink" : "bg-line text-ink-soft"
                     }`}
                   >
                     <BIcon size={20} strokeWidth={1.75} />
@@ -198,7 +314,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Stats summary */}
-        <Card>
+        <Card className="mb-6">
           <h2 className="font-display text-lg font-semibold text-ink mb-3">Activity summary</h2>
           <div className="space-y-2 font-body text-sm">
             <div className="flex justify-between">
@@ -210,6 +326,55 @@ export default function ProfilePage() {
               <span className="text-ink font-medium tabular-nums">{profile.submissions_rejected}</span>
             </div>
           </div>
+        </Card>
+
+        {/* Submission history (design §4: profile must show history; contract §6 images) */}
+        <Card className="mb-6">
+          <h2 className="font-display text-lg font-semibold text-ink mb-3">Recent submissions</h2>
+          {subsLoading && (
+            <div className="space-y-3">
+              <Skeleton className="h-14 w-full rounded-control" />
+              <Skeleton className="h-14 w-full rounded-control" />
+            </div>
+          )}
+          {subsError && (
+            <p className="text-sm text-ink-soft font-body" role="alert">
+              Could not load your history right now.
+            </p>
+          )}
+          {!subsLoading && !subsError && submissions && submissions.length === 0 && (
+            <p className="text-sm text-ink-soft font-body">
+              No photos yet — complete a challenge to start your history.
+            </p>
+          )}
+          {!subsLoading && !subsError && submissions && submissions.length > 0 && (
+            <div className="divide-y divide-line">
+              {submissions.map((sub) => (
+                <HistoryRow key={sub.id} sub={sub} />
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Account */}
+        <Card>
+          <h2 className="font-display text-lg font-semibold text-ink mb-2">Account</h2>
+          <p className="text-sm text-ink-soft font-body mb-4">
+            Signed in as {profile.email}
+          </p>
+          {logoutError && (
+            <p className="text-sm text-danger font-body mb-3" role="alert">
+              {logoutError}
+            </p>
+          )}
+          <Button
+            variant="secondary"
+            onClick={handleLogout}
+            disabled={logout.isPending}
+          >
+            <LogOut size={16} strokeWidth={1.75} />
+            {logout.isPending ? "Signing out…" : "Log out"}
+          </Button>
         </Card>
       </div>
     </Layout>

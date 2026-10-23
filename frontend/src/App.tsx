@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { ProtectedRoute, PublicOnlyRoute } from "./components/ProtectedRoute";
 import { AuthEvents } from "./components/AuthEvents";
+import { OfflineGuard } from "./components/OfflineGuard";
 
 const LoginPage = lazy(() => import("./routes/LoginPage"));
 const RegisterPage = lazy(() => import("./routes/RegisterPage"));
@@ -21,7 +22,7 @@ function LoadingScreen() {
 
 function App() {
   return (
-    <>
+    <OfflineGuard>
       <AuthEvents />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
@@ -83,7 +84,7 @@ function App() {
         <Route path="*" element={<Navigate to="/challenges" replace />} />
         </Routes>
       </Suspense>
-    </>
+    </OfflineGuard>
   );
 }
 
