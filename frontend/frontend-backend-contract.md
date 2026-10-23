@@ -5,7 +5,8 @@ this file is updated in the same commit. Do not infer behaviour from backend sou
 question is unanswered here.
 
 - Backend status: **complete and live-verified** (see [../PROJECT_STATE.md](../PROJECT_STATE.md)).
-- Frontend status: **not started**.
+- Frontend status: **built** (milestones 1–4); this file remains its only source of truth
+  about the backend. If backend behaviour changes, update this file in the same commit.
 - API version: `/api/v1`. Dev server: `http://127.0.0.1:8000`. Swagger: `/docs`.
 - All payloads are JSON except the image upload (multipart). All timestamps are ISO-8601 UTC
   ending in `Z`.

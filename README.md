@@ -22,18 +22,21 @@ uses photo evidence plus AI verification so points are not simply self-reported.
 |---|---|
 | Backend | Python 3.12, FastAPI, SQLModel, SQLite, Alembic, uv |
 | Verification | Google Gemini vision, behind a provider interface (mock for tests/offline) |
-| Frontend (next) | React + Vite + TypeScript + Tailwind, Bun, installable PWA |
+| Frontend | React + Vite + TypeScript + Tailwind v4, Bun, installable PWA |
 
 ## Repository
 
 ```
 backend/    FastAPI API, database, AI verification, tests
+frontend/   React PWA (screens, typed API client, TanStack Query, design system)
 docs/       Architecture, decisions, API reference
 AGENTS.md   Map for AI coding agents (read this if you are one)
 PROJECT_STATE.md  What currently works
 ```
 
 ## Run it
+
+Backend:
 
 ```bash
 cd backend
@@ -44,11 +47,20 @@ uv run seed
 uv run fastapi dev            # http://127.0.0.1:8000/docs
 ```
 
-The frontend is not built yet; the API is fully usable through the interactive docs at `/docs`.
-Its complete interface is specified in
-[frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md).
+Frontend (dev server proxies `/api` to the backend):
+
+```bash
+cd frontend
+bun install
+bun run dev                   # http://127.0.0.1:5173
+bunx tsc -b && bunx vitest run && bunx vite build   # the verification gate
+```
+
+The API is also fully usable through the interactive docs at `/docs`; its complete interface
+is specified in [frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md).
 
 ## Status
 
-Backend under active construction. See [PROJECT_STATE.md](PROJECT_STATE.md) for the exact,
-honest state of every feature.
+Backend complete, live-verified, and frozen except for defects. Frontend built (milestones 1–4)
+and under review. See [PROJECT_STATE.md](PROJECT_STATE.md) for the exact, honest state of every
+feature.

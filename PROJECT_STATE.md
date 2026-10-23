@@ -2,14 +2,15 @@
 
 > Living document. **Update at every milestone**, not continuously. A fresh agent should read this
 > one file and know exactly where the project stands.
-> Last updated: 2026-10-23 (frontend milestones 1–4: scaffold → screens → polish + a11y → contract tests + live e2e)
+> Last updated: 2026-10-23 (frontend milestones 1–4 + reload-loop fix + three-agent audit fixes: 51 tests, all gates green)
 
 ## Where we are
 
-**Phase:** backend complete and frozen. **Frontend milestones 1–4 complete** — all screens built,
-typed API client, TanStack Query layer, PWA shell, auth flow, design polish + accessibility pass,
-and 18 tests passing. `tsc`, `vite build`, and `vitest` all green. Live end-to-end verified through
-the Vite dev proxy (see the evidence table below).
+**Phase:** backend complete and frozen. **Frontend milestones 1–4 complete, plus two bugfix
+rounds and a three-agent audit** (code review, tests, docs) — all findings integrated. All
+screens, typed API client, TanStack Query layer, PWA shell (incl. offline screen), auth flow,
+design polish + accessibility, **51 tests passing**. Gates: `tsc -b` 0 errors, oxlint 0/0,
+`vitest` 51/51, `vite build` green. Live end-to-end verified through the Vite dev proxy.
 
 The backend is frozen except for defects. The frontend's complete interface lives in
 [frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md); that file, not the
@@ -53,7 +54,7 @@ unlocked once, the cooldown became active, and history recorded both attempts.
 | Fresh DB upgrade + downgrade + re-upgrade | passes; `alembic check` → no drift |
 | `uv run fastapi dev` | health ok, `/docs` 200, `/redoc` 404 |
 
-## Frontend decisions locked (not built)
+## Frontend decisions (locked and implemented)
 
 - React + Vite + TypeScript + Tailwind + Bun; installable PWA.
 - TanStack Query + React Router.
@@ -76,7 +77,8 @@ unlocked once, the cooldown became active, and history recorded both attempts.
 - Profile: stats grid (points, rank, approved, CO2), editable display name, badge progress bars with target tracking.
 - Leaderboard: editorial list with tabular rank numerals, current-user mint highlight, tie semantics preserved.
 - Lazy-loaded routes with Suspense spinner.
-- vite build succeeds cleanly (1999 modules, code-split routes, self-hosted fonts); 11 Vitest tests pass at that milestone (18 now).
+- vite build succeeds cleanly (1999 modules at that commit, code-split routes, self-hosted fonts);
+  11 Vitest tests then (current total is listed in "Where we are").
 - All convenience hooks added to queries.ts: useMe, useLogin, useRegister, useChallenges, useChallengeDetail, useProfile, useSubmissions, useLeaderboard, useMeta.
 
 ## Frontend milestone 3 (complete)
@@ -88,7 +90,9 @@ unlocked once, the cooldown became active, and history recorded both attempts.
   (transforms/count-ups dropped, fades kept), `aria-hidden` on decorative skeletons, `aria-live`
   verdict regions, `role=alert` errors, 44px minimum touch targets.
 - Service worker registered in production builds (app-shell only; `/api/*` never cached).
-- Verified: `tsc --noEmit` clean, 18 Vitest tests pass, `vite build` succeeds.
+- Verified at this milestone: `vitest` green (11 tests) and `vite build` succeeds.
+  (The type gate used then — bare `tsc --noEmit` — turned out to check nothing; milestone 4b
+  replaced it with `tsc -b` and fixed what it found.)
 
 ## Frontend milestone 4 (complete) — contract tests + live e2e
 
@@ -107,6 +111,66 @@ unlocked once, the cooldown became active, and history recorded both attempts.
   - one transient Google `500 INTERNAL` mapped by backend to contract `502` (no points, safe
     retry) — retry reused the same errored row as documented.
 
+## Frontend milestone 4b (complete) — reload-loop bugfix + audit
+
+- **Bug fix (`4ebc7ca`):** the API client used `window.location.href = "/login"` on every 401.
+  On the `/login` page itself that is a full-document reload on every mount — an infinite reload
+  loop that froze the browser. The fetch layer now never navigates: 401 notifies an injectable
+  handler (`setUnauthorizedHandler`), and the new `src/components/AuthEvents.tsx` routes to
+  `/login` through React Router with a same-path guard, so a 401 while already on an auth page
+  is a no-op. Contract §2.4 is still satisfied (auth state cleared, app routes to login).
+  Regression tests added (401 notifies handler; non-401 does not; safe when handler removed).
+  `window.location.reload()` survives only for contract §2.5 (repeated CSRF failure on
+  user-initiated mutations — it never fires on page load).
+- **Type-gate correction:** bare `tsc --noEmit` was vacuous — the root `tsconfig.json` is a
+  references-only stub (`{"files": []}`), so it checked nothing. The real gate is `tsc -b`.
+  Running it surfaced 5 real errors that had passed the vacuous gate, including
+  `Layout.tsx` using `isActive` outside its scope (a ReferenceError crash on the mobile bottom
+  nav) — all fixed. **Always use `bunx tsc -b`.**
+- Follow-on audits ran against this tree; their findings are recorded as milestone 4c below.
+
+## Frontend milestone 4c (complete) — audit-fix batch
+
+Two subagent audits (adversarial code review + test/build verification, both against the contract
+and design spec) found 1 high bug still live plus ~15 medium/low issues. All integrated:
+
+**Critical fixed first:** SPA login always returned 422 — `api()` clobbered the caller's explicit
+`application/x-www-form-urlencoded` header with `application/json`, so FastAPI's form parser saw
+an empty body (proved in-process with the backend venv: wrong header → 422, right header → 200).
+Fixed by only defaulting to JSON when the caller set no Content-Type; regression tests lock the
+login wire format. (The earlier live e2e used curl and missed this — it validates the backend,
+not the SPA client.)
+
+**Audited findings fixed:**
+- Ticking cooldown countdowns (`formatCooldown` + `useNow`, 30 s) gated on server `can_submit`;
+  "Ready" state when available; never a negative countdown; live countdown + absolute time on the
+  detail page; unit-tested in `format.test.ts`.
+- `co2_note` now shown next to the figure on challenge detail; list chips labelled "estimated";
+  `/meta` environmental + verification disclaimers rendered in the Layout footer (contract §7).
+- Header points chip now synced from the submission's returned `profile` (never optimistic).
+- Photo-preview blob URL revoked on replace/unmount (previous code revoked the just-created URL,
+  breaking previews and leaking the last one); corrected in the effect cleanup.
+- Display-name rename errors surfaced (`role=alert`, server detail incl. 409 duplicates);
+  logout error surfaced; logout button added to the Profile page (mobile had no logout at all);
+  re-entry guards on login/register/submit/delete-name.
+- Leaderboard always shows rank numerals (top-3 ranks were icon-only, hiding ties like 1,1,3);
+  contrast fixes ("You" label, earned-badge icon).
+- Register validation chain fixed (empty field now says "required"; email format checked).
+- CSRF cookie parsing hardened against `=` values; `Retry-After` read into `ApiError` and shown
+  on 429; `limit`/`offset` no longer dropped when 0; unused `msw` dependency removed.
+
+**Contract features completed:**
+- **Submission history** on Profile (design §4) with status chips and contract §6 blob thumbnails
+  (cookies included, revoked on unmount) via `GET /submissions`.
+- **Offline screen** (contract §8): `OfflineGuard` shows the branded page with a retry; the
+  service worker now runtime-caches static assets and serves the shell for offline navigations
+  while still never touching `/api/*`. Test-covered (live online/offline events).
+
+**Process corrections:** bare `tsc --noEmit` was proven vacuous (references-only root tsconfig) —
+the gate is `tsc -b`, now wired into `package.json` (`test`, `typecheck`, `build` scripts).
+Navigation docs completed: eight missing `<folder>.md` files created; stale "not started"/
+"planned" language purged from AGENTS.md, README.md, the contract header, and frontend.md.
+
 ## Not built yet
 
 - Visual review of screens at 360 px + laptop widths (dev server + backend are running) in a browser.
@@ -116,8 +180,8 @@ unlocked once, the cooldown became active, and history recorded both attempts.
 
 ## Next up
 
-1. Visual review in a browser at 360 px + laptop widths (dev server runs on :5173,
-   frontend on :8000 — both up) and on-device PWA install check.
+1. Visual review in a browser at 360 px + laptop widths (frontend dev server :5173,
+   backend :8000 — both up) and on-device PWA install check.
 2. Revisit deployment once the VPS is confirmed.
 
 ## Known limitations (accepted for v1)
@@ -141,8 +205,14 @@ unlocked once, the cooldown became active, and history recorded both attempts.
 ```bash
 cd backend
 uv run alembic upgrade head
-uv run pytest -q
+uv run pytest -q             # 97 backend tests
 uv run fastapi dev            # http://127.0.0.1:8000/docs
+
+cd frontend
+bunx tsc -b                  # the REAL type gate (bare `tsc --noEmit` checks nothing here)
+bunx vitest run               # frontend tests
+bunx vite build               # production bundle
+bunx vite --port 5173         # dev server; /api proxied to http://127.0.0.1:8000
 ```
 
 Sandbox note: if uv reports `Read-only file system`, prefix commands with
@@ -171,4 +241,5 @@ An independent fresh-context audit (correctness + adversarial + docs) found and 
 ## Git
 
 Run `git log --oneline` for history. Commits are scoped: scaffold → backend → hardening →
-live-verification record → cookie auth + frontend contract.
+live-verification record → cookie auth + frontend contract → design spec → frontend
+milestones 1–4 (scaffold, screens, polish, contract tests) → 401 reload-loop fix + audits.

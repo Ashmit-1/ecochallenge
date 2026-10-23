@@ -4,7 +4,7 @@ A gamified sustainability app. Students pick an eco challenge, do it in the real
 upload photo evidence, and an AI vision model verifies the photo before points are awarded.
 Points feed a profile, badges, estimated CO₂ savings, and a leaderboard.
 
-**Current state: backend complete and live-verified. Frontend not started; its contract is ready.**
+**Current state: backend complete, live-verified, and frozen. Frontend built (milestones 1–4 + bugfix) and under review. Its contract is still the source of truth.**
 Read [PROJECT_STATE.md](PROJECT_STATE.md) first.
 
 ## Read in this order
@@ -33,7 +33,7 @@ AGENTS.md → backend/backend.md → app/app.md → services/services.md → sub
 | Tests | [backend/tests/tests.md](backend/tests/tests.md) |
 | Seed challenge data | [backend/app/db/db.md](backend/app/db/db.md) |
 | Why a decision was made | [docs/decisions.md](docs/decisions.md) |
-| Build the frontend (new session) | [frontend/frontend.md](frontend/frontend.md) → [contract](frontend/frontend-backend-contract.md) |
+| Work on the frontend | [frontend/frontend.md](frontend/frontend.md) → [contract](frontend/frontend-backend-contract.md) |
 | Visual design, palette, type, motion | [frontend/design.md](frontend/design.md) |
 
 ## Commands
@@ -70,4 +70,4 @@ If `uv` fails with `Read-only file system` on its cache, prefix commands with
 - Backend stack: FastAPI + SQLModel + SQLite + Alembic, sync sessions, `def` endpoints.
 - API is versioned under `/api/v1`. Errors use FastAPI's `{"detail": ...}` shape.
 - Timestamps are UTC. CO₂ values are grams stored as integers.
-- Frontend (future): React + Vite + TypeScript + Tailwind + Bun, installable PWA.
+- Frontend: React + Vite + TypeScript + Tailwind + Bun, installable PWA (built; see PROJECT_STATE.md).
