@@ -2,15 +2,15 @@
 
 > Living document. **Update at every milestone**, not continuously. A fresh agent should read this
 > one file and know exactly where the project stands.
-> Last updated: 2026-10-23 (frontend milestones 1–4 + reload-loop fix + three-agent audit fixes: 51 tests, all gates green)
+> Last updated: 2026-10-23 (frontend revisions: type swap to Newsreader + Manrope, eco-doodle wallpaper, milestones 1–4 + audit fixes: 68 tests, all gates green)
 
 ## Where we are
 
-**Phase:** backend complete and frozen. **Frontend milestones 1–4 complete, plus two bugfix
-rounds and a three-agent audit** (code review, tests, docs) — all findings integrated. All
+**Phase:** backend complete and frozen. **Frontend milestones 1–4 complete, two bugfix rounds,
+a three-agent audit, plus revision r2** (type swap to Newsreader + Manrope, eco-doodle wallpaper) (code review, tests, docs) — all findings integrated. All
 screens, typed API client, TanStack Query layer, PWA shell (incl. offline screen), auth flow,
-design polish + accessibility, **51 tests passing**. Gates: `tsc -b` 0 errors, oxlint 0/0,
-`vitest` 51/51, `vite build` green. Live end-to-end verified through the Vite dev proxy.
+design polish + accessibility, **68 tests passing**. Gates: `tsc -b` 0 errors, oxlint 0/0,
+`vitest` 68/68, `vite build` green. Live end-to-end verified through the Vite dev proxy.
 
 The backend is frozen except for defects. The frontend's complete interface lives in
 [frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md); that file, not the
@@ -63,8 +63,8 @@ unlocked once, the cooldown became active, and history recorded both attempts.
 - Visual direction: **Fresh botanical** — airy whites, leaf greens, soft rounded cards, friendly
   iconography; mobile and laptop equally first-class.
 - Full contract: [frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md).
-- Visual spec: [frontend/design.md](frontend/design.md) — palette, Fraunces + Figtree type,
-  screen intent, states, motion, accessibility, anti-patterns.
+- Visual spec: [frontend/design.md](frontend/design.md) — palette, **Newsreader + Manrope** type,
+  eco-doodle wallpaper, screen intent, states, motion, accessibility, anti-patterns.
 
 ## Frontend milestone 2 (complete)
 
@@ -170,6 +170,36 @@ not the SPA client.)
 the gate is `tsc -b`, now wired into `package.json` (`test`, `typecheck`, `build` scripts).
 Navigation docs completed: eight missing `<folder>.md` files created; stale "not started"/
 "planned" language purged from AGENTS.md, README.md, the contract header, and frontend.md.
+
+## Frontend revision r2 (complete) — type swap + wallpaper
+
+Owner feedback: the Fraunces/Figtree pairing "looked too AI generated" and the flat paper
+background was monotonous. Both locked decisions were re-chosen (owner picked from options):
+
+- **Type:** Newsreader (editorial display serif) + Manrope (warm geometric sans), self-hosted via
+  `@fontsource-variable/newsreader` + `@fontsource-variable/manrope`; `--font-display` /
+  `--font-body` tokens swapped, font imports swapped — layout, sizing, and tabular-numeral
+  behaviour untouched. design.md §3 typography updated (with revision note).
+- **Wallpaper:** WhatsApp-style eco-doodle tile (sprout, recycle arrows, leaf, sun, droplet,
+  bicycle, tree, globe, pot) — 300×300 seamless, moss stroke at 0.14 opacity, generated as an
+  inline data-URI by `frontend/scripts/gen-doodle.py` (motifs proven inside-tile by
+  `bun run scripts/check-doodle.ts` — committed, reproducible: embeds-generator sync +
+  pixel-coverage, all regions identical). `body` paints it everywhere; the six former `bg-paper` full-screen
+  surfaces (Layout, auth, offline, loaders) now use a `bg-field` utility so no flat colour
+  covers it. Cards still sit on `bg-surface`, as chat bubbles do over chat wallpaper.
+- design.md §3 gained a "Wallpaper (eco-doodle)" spec; scripts.md/styles.md/frontend.md updated.
+- Gates re-run: `tsc -b` 0, vitest **68/68**, oxlint 0/0, `vite build` green, dist contains the
+  doodle var + `bg-field` utility + both new font faces (8 woff2); dev server serves them 200.
+- **17 new regression tests** (agent-written, adversarially mutation-checked):
+  `theme.test.ts` (font tokens, no stale families, well-formed single-prefix `--field-doodle`,
+  body/utility wiring, decoded SVG structure + motif-in-tile geometry, exact generator↔CSS sync,
+  no `bg-paper` contexts, every full-page wrapper on `bg-field`) and `fonts.test.ts`
+  (imports + package manifest). Discrimination proven: reintroducing the doubled-prefix defect
+  fails 2 tests; reintroducing a stale font package fails 1 — both restored byte-identically
+  afterwards.
+- A docs agent's independent re-audit caught a doubled `--field-doodle: --field-doodle:`
+  paste defect (wallpaper resolved to `none`) and the leftover old font packages — both fixed
+  above and now guarded by the tests + `check-doodle.ts`.
 
 ## Not built yet
 

@@ -14,7 +14,7 @@ const LeaderboardPage = lazy(() => import("./routes/LeaderboardPage"));
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-paper flex items-center justify-center">
+    <div className="min-h-screen bg-field flex items-center justify-center">
       <Loader2 size={32} className="text-moss animate-spin" />
     </div>
   );

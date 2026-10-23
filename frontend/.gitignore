@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Local visual-review artifacts (gen-doodle.py --preview output)
+.preview/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

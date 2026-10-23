@@ -40,12 +40,13 @@ frontend/
 │   ├── lib/                api.ts (the single fetch wrapper; never navigates), queries.ts
 │   │                       (key factory + typed hooks/mutations) + their tests (+ lib.md)
 │   ├── styles/             index.css: Tailwind v4 @import, Fresh Botanical @theme tokens,
+│   │                       Newsreader/Manrope type, --field-doodle wallpaper + bg-field,
 │   │                       motion + focus classes (there is no tailwind.config file)
 │   ├── types/              contract types from contract §3 (+ types.md)
 │   └── test/setup.ts       jest-dom matchers for Vitest (+ test.md)
 ├── public/                 manifest.json, sw.js (app shell only, never /api/*), favicon.svg,
 │   │                       icons/ (192, 512, maskable) (+ public.md, icons/icons.md)
-├── scripts/generate-icons.ts  regenerates the PWA icon PNGs from the sprout SVG (+ scripts.md)
+├── scripts/                 generate-icons.ts (PWA icons), gen-doodle.py (wallpaper tile) (+ scripts.md)
 ├── index.html
 ├── vite.config.ts          dev proxy /api → http://127.0.0.1:8000; vitest config (`test` key)
 ├── tsconfig*.json          NOTE: root tsconfig is references-only — typecheck with `tsc -b`, not bare `tsc --noEmit` (which checks nothing)

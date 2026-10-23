@@ -49,7 +49,7 @@ export function Layout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-paper flex flex-col">
+    <div className="min-h-screen bg-field flex flex-col">
       {/* Desktop top nav */}
       <header className="hidden md:flex items-center justify-between px-8 py-4 max-w-[1120px] mx-auto w-full">
         <div className="flex items-center gap-3">
@@ -119,7 +119,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-paper flex flex-col items-center justify-center px-5 py-12">
+    <div className="min-h-screen bg-field flex flex-col items-center justify-center px-5 py-12">
       <div className="flex items-center gap-3 mb-8">
         <Sprout size={36} className="text-moss" strokeWidth={1.5} />
         <span className="font-display text-3xl font-semibold text-ink">EcoChallenge</span>

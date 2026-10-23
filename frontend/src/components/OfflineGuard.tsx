@@ -26,7 +26,7 @@ export function OfflineGuard({ children }: { children: ReactNode }) {
 
 function OfflineScreen() {
   return (
-    <main className="min-h-screen bg-paper flex flex-col items-center justify-center px-6 py-16 text-center motion-rise">
+    <main className="min-h-screen bg-field flex flex-col items-center justify-center px-6 py-16 text-center motion-rise">
       <div className="w-24 h-24 mb-4" aria-hidden="true">
         <BotanicalSprout />
       </div>

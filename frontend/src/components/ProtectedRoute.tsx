@@ -9,7 +9,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
+      <div className="min-h-screen bg-field flex items-center justify-center">
         <Loader2 size={32} className="text-moss animate-spin" />
       </div>
     );
@@ -27,7 +27,7 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
+      <div className="min-h-screen bg-field flex items-center justify-center">
         <Loader2 size={32} className="text-moss animate-spin" />
       </div>
     );

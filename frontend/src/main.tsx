@@ -6,8 +6,8 @@ import "./styles/index.css";
 import App from "./App";
 
 // Self-hosted variable fonts (design.md §3)
-import "@fontsource-variable/fraunces";
-import "@fontsource-variable/figtree";
+import "@fontsource-variable/newsreader";
+import "@fontsource-variable/manrope";
 
 const queryClient = new QueryClient({
   defaultOptions: {
