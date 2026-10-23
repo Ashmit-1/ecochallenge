@@ -6,6 +6,7 @@ so the next session can begin without guessing.
 | File | Purpose |
 |---|---|
 | [frontend-backend-contract.md](frontend-backend-contract.md) | **The only source of truth about the backend.** Auth, endpoints, types, errors, PWA rules |
+| [design.md](design.md) | Visual direction, palette, type, layout, states, motion, accessibility, anti-patterns |
 
 ## Locked decisions
 
@@ -18,7 +19,7 @@ so the next session can begin without guessing.
 | Auth | httpOnly cookie session + `X-CSRF-Token` (already implemented in the backend) |
 | PWA | Installable app shell; **data always online**, no offline cache or queue |
 | Icons | `lucide-react` (names come from the API; see the contract's icon mapping) |
-| Theme | Fresh botanical — airy whites, leaf greens, soft rounded cards, friendly iconography; genuinely human, not a template |
+| Theme | Fresh botanical — airy whites, leaf greens, soft rounded cards, friendly iconography; genuinely human, not a template. Full spec: [design.md](design.md) |
 
 ## Planned structure
 

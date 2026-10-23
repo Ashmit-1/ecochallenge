@@ -34,6 +34,7 @@ AGENTS.md → backend/backend.md → app/app.md → services/services.md → sub
 | Seed challenge data | [backend/app/db/db.md](backend/app/db/db.md) |
 | Why a decision was made | [docs/decisions.md](docs/decisions.md) |
 | Build the frontend (new session) | [frontend/frontend.md](frontend/frontend.md) → [contract](frontend/frontend-backend-contract.md) |
+| Visual design, palette, type, motion | [frontend/design.md](frontend/design.md) |
 
 ## Commands
 

@@ -2,7 +2,7 @@
 
 > Living document. **Update at every milestone**, not continuously. A fresh agent should read this
 > one file and know exactly where the project stands.
-> Last updated: 2026-10-23 (backend complete, cookie auth added, frontend contract ready)
+> Last updated: 2026-10-23 (backend complete, cookie auth added, frontend contract + design ready)
 
 ## Where we are
 
@@ -60,6 +60,8 @@ unlocked once, the cooldown became active, and history recorded both attempts.
 - Visual direction: **Fresh botanical** — airy whites, leaf greens, soft rounded cards, friendly
   iconography; mobile and laptop equally first-class.
 - Full contract: [frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md).
+- Visual spec: [frontend/design.md](frontend/design.md) — palette, Fraunces + Figtree type,
+  screen intent, states, motion, accessibility, anti-patterns.
 
 ## Not built yet
 
