@@ -30,15 +30,19 @@ domain, the logic belongs in a service.
 
 `POST /challenges/{slug}/submissions` (multipart image):
 
-1. Validate the challenge is active and the file is an allowed image under the size cap.
+1. Validate the challenge is active, and **decode** the file with Pillow as a real JPEG/PNG/WebP
+   (at least 200×200 px, under the size and pixel caps). Magic bytes alone are not accepted.
 2. **Cooldown check** — reject with `429` if an *approved* submission for this user+challenge
-   exists within `cooldown_hours`. Rejected attempts do not lock the user out.
+   exists within `cooldown_hours`, measured from **approval time** (`verified_at`). Rejected
+   attempts and errored uploads do not lock the user out.
 3. **Duplicate check** — SHA-256 the bytes; reject with `409` if any submission already used it.
 4. Persist the file as `uploads/{user_id}/{uuid}.{ext}` and create the submission as `pending`.
 5. **Verify** through `VisionProvider`: image + challenge context → `approved`, `confidence`,
    `reason`. On provider failure the submission becomes `error` and no points move.
-6. On approval only: copy `challenge.points` and `challenge.co2_saved_grams` onto the submission,
-   add points to the user's running total, compute newly earned badges.
+6. On approval only, inside one write transaction: conditionally claim the `pending` row, re-check
+   the cooldown now that the write lock is held, snapshot `points`/`co2_saved_grams`, and increment
+   the user's total. A competing approval either committed first (visible to the re-check) or is
+   still blocked, so two uploads cannot both be awarded. Then compute newly earned badges.
 7. Return the submission, the verification verdict, the refreshed profile totals, and any new
    badges — one round trip, because the user is waiting on this screen.
 
