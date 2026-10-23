@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { api, ApiError } from "./api";
+import * as apiExports from "./api";
 
 describe("api client", () => {
   beforeEach(() => {
@@ -125,6 +126,58 @@ describe("api client", () => {
     const result = await api("/auth/me", { method: "PATCH", body: "{}" });
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ id: 1 });
+  });
+});
+
+describe("401 handling (regression: reload loop guard)", () => {
+  beforeEach(() => {
+    Object.defineProperty(document, "cookie", { writable: true, value: "" });
+    globalThis.fetch = vi.fn();
+    apiExports.setUnauthorizedHandler(null);
+  });
+
+  afterEach(() => {
+    apiExports.setUnauthorizedHandler(null);
+  });
+
+  it("notifies the unauthorized handler instead of navigating", async () => {
+    const handler = vi.fn();
+    apiExports.setUnauthorizedHandler(handler);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      json: () => Promise.resolve({ detail: "Not authenticated" }),
+    });
+
+    await expect(api("/auth/me")).rejects.toThrow(ApiError);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not notify the handler for non-401 errors", async () => {
+    const handler = vi.fn();
+    apiExports.setUnauthorizedHandler(handler);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      json: () => Promise.resolve({ detail: "Boom" }),
+    });
+
+    await expect(api("/profile")).rejects.toThrow(ApiError);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("survives removed handler (no crash after unmount)", async () => {
+    apiExports.setUnauthorizedHandler(null);
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      status: 401,
+      statusText: "Unauthorized",
+      json: () => Promise.resolve({ detail: "Not authenticated" }),
+    });
+
+    await expect(api("/auth/me")).rejects.toThrow(ApiError);
   });
 });
 

@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { ProtectedRoute, PublicOnlyRoute } from "./components/ProtectedRoute";
+import { AuthEvents } from "./components/AuthEvents";
 
 const LoginPage = lazy(() => import("./routes/LoginPage"));
 const RegisterPage = lazy(() => import("./routes/RegisterPage"));
@@ -20,8 +21,10 @@ function LoadingScreen() {
 
 function App() {
   return (
-    <Suspense fallback={<LoadingScreen />}>
-      <Routes>
+    <>
+      <AuthEvents />
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
         <Route path="/" element={<Navigate to="/challenges" replace />} />
 
         {/* Public-only auth routes */}
@@ -78,8 +81,9 @@ function App() {
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/challenges" replace />} />
-      </Routes>
-    </Suspense>
+        </Routes>
+      </Suspense>
+    </>
   );
 }
 

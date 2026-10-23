@@ -38,6 +38,19 @@ function csrfToken(): string {
   return match ? decodeURIComponent(match.split("=")[1]) : "";
 }
 
+// --- 401 handling (contract §2.4: clear auth state and route to /login) ---
+// The fetch layer NEVER navigates: a hard `window.location` assignment here
+// caused an infinite full-page reload loop on /login (each mount 401s). The
+// app shell registers a handler that redirects through React Router instead,
+// with a same-path guard so it can never loop.
+
+type UnauthorizedHandler = () => void;
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export function setUnauthorizedHandler(fn: UnauthorizedHandler | null): void {
+  unauthorizedHandler = fn;
+}
+
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
@@ -59,9 +72,10 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     const err = await ApiError.fromResponse(response);
 
-    // 401 → clear auth state and redirect to login
+    // 401 → notify the app shell; it clears auth state and routes to /login
+    // through the router (never a hard navigation — that caused reload loops).
     if (err.status === 401) {
-      window.location.href = "/login";
+      unauthorizedHandler?.();
       throw err;
     }
 
