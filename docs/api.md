@@ -60,7 +60,7 @@ A disabled account gets `403` on login, and any request with its old token gets 
       "approved": true,
       "confidence": 0.92,
       "reason": "A bicycle is clearly visible…",
-      "model": "gemini-2.5-flash"
+      "model": "gemma-4-26b-a4b-it"
     },
     "image_url": "/api/v1/submissions/42/image",
     "created_at": "2026-10-23T09:12:00Z",

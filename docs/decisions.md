@@ -40,7 +40,9 @@ for v1; a token-version column on `User` is the upgrade path.
 selected by `VISION_PROVIDER`.
 **Why.** Tests stay offline and deterministic; the app runs with no key; swapping to OpenAI or a
 local model touches one file.
-**Cost.** One extra abstraction. Justified by the testing and offline story.
+**Cost.** One extra abstraction. Justified by the testing and offline story. The model is data
+(`GEMINI_MODEL`), not a code constant: `gemma-4-26b-a4b-it` is the verified default, and
+`gemini-2.5-flash` also works.
 
 ## D5 — Synchronous verification
 

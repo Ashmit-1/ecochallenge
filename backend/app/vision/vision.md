@@ -23,7 +23,9 @@ between an honest rejection and a student losing points to an outage.
 
 ## Gemini specifics
 
-- Model comes from `GEMINI_MODEL` (default `gemini-2.5-flash`).
+- Model comes from `GEMINI_MODEL` (default `gemma-4-26b-a4b-it`; `gemini-2.5-flash` also works).
+  Both were verified live: a campus bicycle photo approved at 0.95 confidence, a laptop photo
+  rejected at 1.0 with a concrete reason.
 - Responses use `response_schema=VisionVerdict`, so output is validated JSON rather than prose.
 - `temperature=0.1` for consistency; `SystemPrompt` in `gemini.py` defines what counts as evidence.
 - Timeout from `VISION_TIMEOUT_SECONDS`, applied via `HttpOptions.timeout` (milliseconds).

@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     vision_provider: Literal["gemini", "mock"] = "gemini"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemma-4-26b-a4b-it"  # verified to support image + JSON schema
     vision_timeout_seconds: float = 30.0
 
     @field_validator("cors_origins", mode="before")
