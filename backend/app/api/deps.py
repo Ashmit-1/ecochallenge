@@ -18,6 +18,9 @@ from app.vision.factory import get_vision_provider
 
 settings = get_settings()
 
+# SQLite stores signed 64-bit integers; larger values raise OverflowError at the driver.
+MAX_DB_INT = 9_223_372_036_854_775_807
+
 # tokenUrl is what Swagger's Authorize button posts to.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_v1_prefix}/auth/login")
 optional_oauth2_scheme = OAuth2PasswordBearer(

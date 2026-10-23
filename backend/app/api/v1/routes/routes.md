@@ -14,7 +14,7 @@ One module per resource. Each file is thin: parse input → call a service → r
 ## Conventions
 
 - One `APIRouter` per module, `tags=[...]` for docs grouping. Prefixes live in the module.
-- Auth via `CurrentUser` / `OptionalUser` from [../deps.py](../deps.py); never decode tokens by hand.
+- Auth via `CurrentUser` / `OptionalUser` from [../../deps.py](../../deps.py); never decode tokens by hand.
 - Uploads read at most `MAX_UPLOAD_MB + 1` bytes, so an oversized file is rejected without being
   loaded into memory in full.
 - Images are streamed with `FileResponse` only after `submission_service.get_submission()` proves

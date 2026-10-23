@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from io import BytesIO
 
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlmodel import select
 
 from app.core.config import get_settings
@@ -92,6 +95,7 @@ def test_cooldown_expires_after_the_window(
     ).all()
     for row in rows:
         row.created_at = utcnow() - timedelta(hours=25)
+        row.verified_at = utcnow() - timedelta(hours=25)
         db_session.add(row)
     db_session.commit()
 
@@ -245,3 +249,92 @@ def test_submission_detail_and_image_are_owner_only(
         == 404
     )
     assert client.get(f"/api/v1/submissions/{submission_id}/image").status_code == 401
+
+
+def test_bare_magic_bytes_are_not_an_image(client: TestClient, register, submit):
+    user = register("Signature Only")
+    assert submit(user, image=b"\x89PNG\r\n\x1a\n").status_code == 415
+
+
+def test_corrupted_image_body_is_rejected(client: TestClient, register, submit):
+    user = register("Corrupt Image")
+    assert submit(user, image=b"\x89PNG\r\n\x1a\n" + b"garbage" * 100).status_code == 415
+
+
+def test_tiny_image_is_rejected(client: TestClient, register, submit):
+    user = register("Tiny Image")
+    buffer = BytesIO()
+    Image.new("RGB", (64, 64), (10, 20, 30)).save(buffer, format="PNG")
+    assert submit(user, image=buffer.getvalue()).status_code == 415
+
+
+def test_errored_photo_cannot_be_retried_on_a_different_challenge(
+    client: TestClient, register, submit, png
+):
+    user = register("Reattributed Photo")
+    image = png()
+
+    app.dependency_overrides[get_vision_provider] = lambda: BrokenProvider()
+    try:
+        assert submit(user, "bike-to-campus", image=image).status_code == 502
+        # The photo belongs to the challenge it was submitted against.
+        assert submit(user, "recycle-waste-batch", image=image).status_code == 409
+    finally:
+        app.dependency_overrides[get_vision_provider] = lambda: MockVisionProvider()
+
+    history = client.get("/api/v1/submissions", headers=user.headers).json()
+    assert len(history) == 1
+    assert history[0]["challenge"]["slug"] == "bike-to-campus"
+
+
+def test_retry_of_an_old_errored_photo_cannot_bypass_the_cooldown(
+    client: TestClient, register, submit, png, db_session
+):
+    """Regression: cooldown must run from approval time, not upload time."""
+    user = register("Cooldown Bypass")
+    image = png()
+
+    app.dependency_overrides[get_vision_provider] = lambda: BrokenProvider()
+    try:
+        assert submit(user, "bike-to-campus", image=image).status_code == 502
+    finally:
+        app.dependency_overrides[get_vision_provider] = lambda: MockVisionProvider()
+
+    # The errored row looks ten days old, but it has never been approved.
+    row = db_session.exec(
+        select(Submission).where(Submission.user_id == user.user["id"])
+    ).one()
+    row.created_at = utcnow() - timedelta(days=10)
+    db_session.add(row)
+    db_session.commit()
+
+    retried = submit(user, "bike-to-campus", image=image)
+    assert retried.status_code == 201, retried.text
+    assert retried.json()["submission"]["status"] == "approved"
+
+    # The fresh approval starts the cooldown now; an immediate new photo must not pass.
+    second = submit(user, "bike-to-campus", image=png())
+    assert second.status_code == 429, second.text
+
+    profile = client.get("/api/v1/profile", headers=user.headers).json()
+    assert profile["points_total"] == 50
+
+
+def test_concurrent_submissions_for_one_challenge_award_points_once(
+    client: TestClient, register, submit, png
+):
+    user = register("Race User")
+    images = [png(), png()]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        responses = list(
+            pool.map(lambda image: submit(user, "bike-to-campus", image=image), images)
+        )
+
+    codes = sorted(response.status_code for response in responses)
+    assert codes == [201, 429], [response.text for response in responses]
+
+    profile = client.get("/api/v1/profile", headers=user.headers).json()
+    assert profile["points_total"] == 50
+    history = client.get("/api/v1/submissions", headers=user.headers).json()
+    assert len([row for row in history if row["status"] == "approved"]) == 1

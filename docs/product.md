@@ -22,10 +22,14 @@ them as such. They exist to make impact tangible, not to be audited.
 ## Submission rules
 
 1. Only active challenges accept submissions.
-2. The image must be JPEG/PNG/WebP under 6 MB.
-3. Rejected: same challenge **approved** within `cooldown_hours` → `429`, with a retry time.
-4. Rejected: identical bytes already submitted by anyone → `409`.
-5. Points are awarded **only** on an approved verdict, in the same transaction.
+2. The file must be a **fully decodable** JPEG/PNG/WebP, at least 200×200 px, under 6 MB. A bare
+   file signature is not enough — the server decodes the image before accepting it.
+3. Rejected: same challenge **approved** within `cooldown_hours` → `429`, with a retry time. The
+   window runs from the **approval** timestamp, so retrying an old failed upload cannot skip it.
+4. Rejected: identical bytes already submitted by anyone → `409`. An errored photo may be retried
+   by the same student, but only on the challenge it was originally submitted against.
+5. Points are awarded **only** on an approved verdict, in the same transaction that re-checks the
+   cooldown under SQLite's write lock — two concurrent uploads cannot both be approved.
 6. A provider error is not a rejection: no points, status `error`, and the photo may be retried.
 7. Every attempt stays in history, including rejections.
 

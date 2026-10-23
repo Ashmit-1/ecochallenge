@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.core.config import BACKEND_DIR, Settings
+from app.core.config import BACKEND_DIR, Settings, get_settings
 
 
 def test_health_reports_ok(client: TestClient):
@@ -66,3 +66,37 @@ def test_relative_sqlite_url_is_resolved_against_the_backend_directory():
 def test_upload_limit_is_converted_to_bytes():
     settings = Settings(_env_file=None, secret_key="x", max_upload_mb=6)
     assert settings.max_upload_bytes == 6 * 1024 * 1024
+
+
+def test_integer_overflow_returns_422_not_500(client: TestClient, register):
+    user = register("Overflow User")
+    too_big = 2**63  # one past SQLite's signed 64-bit maximum
+    assert client.get(f"/api/v1/submissions/{too_big}", headers=user.headers).status_code == 422
+    assert client.get(
+        f"/api/v1/submissions/{too_big}/image", headers=user.headers
+    ).status_code == 422
+    assert client.get(
+        f"/api/v1/leaderboard?offset={too_big}", headers=user.headers
+    ).status_code == 422
+    assert client.get(
+        f"/api/v1/submissions?offset={too_big}", headers=user.headers
+    ).status_code == 422
+
+
+def test_redoc_is_disabled(client: TestClient):
+    assert client.get("/redoc").status_code == 404
+
+
+def test_oversized_request_body_is_rejected_before_parsing(client: TestClient, monkeypatch):
+    # Leaves the middleware with only its 256 KB multipart allowance.
+    monkeypatch.setattr(get_settings(), "max_upload_mb", 0)
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "oversized@example.com",
+            "password": "x" * (300 * 1024),
+            "display_name": "Oversized Body",
+        },
+    )
+    assert response.status_code == 413
+    assert response.json()["detail"] == "Request body is too large."

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from io import BytesIO
 from uuid import uuid4
 
 os.environ["SECRET_KEY"] = "test-secret-key-do-not-use-in-production"
@@ -15,6 +16,9 @@ os.environ["ENVIRONMENT"] = "test"
 os.environ["VISION_PROVIDER"] = "mock"
 
 from typing import Callable  # noqa: E402
+
+from PIL import Image  # noqa: E402
+from PIL.PngImagePlugin import PngInfo  # noqa: E402
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -28,8 +32,6 @@ from app.main import app  # noqa: E402
 from app.vision.factory import get_vision_provider  # noqa: E402
 from app.vision.mock import MockVisionProvider  # noqa: E402
 
-# Valid PNG magic bytes; the mock provider never decodes pixels, and validation is magic-based.
-PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 @dataclass(frozen=True)
@@ -73,8 +75,10 @@ def seeded(db_session):
 
 @pytest.fixture()
 def client(engine, seeded):
+    # Mirror production SessionLocal, including autoflush=False, so tests exercise the same
+    # staleness/transaction behaviour the app has in production.
     test_session_factory = sessionmaker(
-        bind=engine, class_=Session, expire_on_commit=False
+        bind=engine, class_=Session, expire_on_commit=False, autoflush=False
     )
 
     def override_get_session():
@@ -135,8 +139,23 @@ def submit(client: TestClient) -> Callable[..., object]:
 
 
 def png_bytes(payload: bytes = b"", marker: bytes = b"") -> bytes:
-    """A minimal byte-string that passes magic-byte validation."""
-    return PNG_SIGNATURE + payload + marker + uuid4().bytes
+    """A genuinely decodable PNG, unique per call.
+
+    Upload validation now fully decodes images, so tests cannot use bare magic bytes. Metadata
+    text chunks carry the mock-rejection marker and a nonce that makes every file byte-unique.
+    """
+    image = Image.new("RGB", (320, 320), (26, 108, 63))
+    nonce = uuid4().int
+    image.putpixel((2, 2), (nonce % 256, (nonce >> 8) % 256, (nonce >> 16) % 256))
+
+    info = PngInfo()
+    info.add_text("marker", marker.decode("latin-1", "ignore"))
+    info.add_text("payload", payload.decode("latin-1", "ignore"))
+    info.add_text("nonce", uuid4().hex)
+
+    buffer = BytesIO()
+    image.save(buffer, format="PNG", pnginfo=info)
+    return buffer.getvalue()
 
 
 def auth_header(token: str) -> dict:

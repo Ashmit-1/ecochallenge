@@ -59,11 +59,15 @@ routes never touch the filesystem directly.
 ## D7 — One-day cooldown per challenge, applied to approvals
 
 **Decision.** `Challenge.cooldown_hours` (default 24; sapling 168, cleanup 72). Checked against
-the newest **approved** submission only.
+the newest **approved** submission only, measured from `verified_at` (approval time), never from
+upload time.
 **Why.** Habits are daily, so one-time challenges would kill retention; unlimited repeats invite
-farming. Rejections do not lock the user out, so a bad photo is recoverable immediately.
+farming. Rejections do not lock the user out, so a bad photo is recoverable immediately. Approval
+time is used because a retried error row keeps its original `created_at`; charging the cooldown
+from upload time let a days-old failed upload count as an old approval.
 **Cost.** A student can still submit a fresh photo of the same activity every day — which is the
-intended behaviour.
+intended behaviour. Concurrency is handled by re-checking the cooldown inside the write
+transaction that awards points (see D14).
 
 ## D8 — Exact-duplicate rejection via SHA-256
 
@@ -108,3 +112,25 @@ guaranteed there. 3.12 is the current well-supported baseline; `uv` manages it a
 **Decision.** Importable package at `backend/app`, not a flat `backend/` module root.
 **Why.** Namespacing, trivial test imports, and room for `scripts/` or a future `worker/` without
 restructuring. `alembic`, `tests`, and `uploads` stay outside the package.
+
+## D14 — Awards are finalised under SQLite's write lock
+
+**Context.** The cooldown is a check-then-act rule: read the last approval, then award later, after
+a 2–6 s AI call. Two concurrent uploads can both pass the read.
+**Decision.** The award transaction starts with a conditional `UPDATE ... WHERE status = 'pending'`
+(which takes SQLite's write lock), then re-checks the cooldown inside that transaction before
+incrementing points. A loser is discarded and told to retry after the cooldown.
+**Why.** Writers are serialised in SQLite, so the second request either sees the first's committed
+approval or blocks until it commits. This is the cheapest correct fix at this scale.
+**Cost.** A losing request has already paid for one AI call. Acceptable, and it cannot award points.
+
+## D15 — Uploads are decoded, and request bodies are capped early
+
+**Decision.** `validate_image()` decodes with Pillow (format must match the magic bytes, at least
+200×200 px, under a 40 MP pixel cap). A `RequestBodyLimitMiddleware` rejects bodies larger than
+`MAX_UPLOAD_MB + 256 KB` from their `Content-Length` before multipart parsing.
+**Why.** Magic-byte checks alone accepted an 8-byte PNG signature and, under the mock provider,
+awarded points for it. Decoding also protects the paid Gemini call from junk input. The middleware
+prevents Starlette from spooling an unbounded body to disk before the handler can return 413.
+**Cost.** Pillow is one extra dependency, and a reverse proxy still needs `client_max_body_size`
+because a chunked request has no declared length.

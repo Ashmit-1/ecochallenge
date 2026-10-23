@@ -42,4 +42,10 @@ def create_access_token(user_id: int, expires_minutes: int | None = None) -> tup
 def decode_access_token(token: str) -> dict:
     """Decode and verify a token. Raises ``jwt.InvalidTokenError`` on any problem."""
     settings = get_settings()
-    return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+    return jwt.decode(
+        token,
+        settings.secret_key,
+        algorithms=[ALGORITHM],
+        # A signed token without an expiry must never be accepted.
+        options={"require": ["exp", "sub"]},
+    )

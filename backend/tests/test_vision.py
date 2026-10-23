@@ -123,3 +123,24 @@ def test_gemini_sdk_failure_becomes_provider_error():
     provider = _provider_with(error=RuntimeError("quota exceeded"))
     with pytest.raises(VisionProviderError, match="quota exceeded"):
         provider.verify(_request())
+
+
+def test_gemini_accepts_a_pydantic_verdict_instance():
+    from app.vision.gemini import VisionVerdict
+
+    provider = _provider_with(
+        _Response(parsed=VisionVerdict(approved=True, confidence=0.6, reason="Clear enough."))
+    )
+    result = provider.verify(_request())
+    assert result.approved is True
+    assert result.confidence == pytest.approx(0.6)
+
+
+def test_gemini_truncates_an_overlong_reason():
+    long_reason = "word " * 300
+    provider = _provider_with(
+        _Response(parsed={"approved": True, "confidence": 0.7, "reason": long_reason})
+    )
+    result = provider.verify(_request())
+    assert len(result.reason) <= 600
+    assert result.reason.endswith("...")

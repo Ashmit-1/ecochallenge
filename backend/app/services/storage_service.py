@@ -7,14 +7,23 @@ Photos are private evidence, so they are never served statically. The DB stores 
 from __future__ import annotations
 
 import uuid
+from io import BytesIO
 from pathlib import Path
 
 from fastapi import HTTPException, status
+from PIL import Image, UnidentifiedImageError
 
 from app.core.config import get_settings
 
 # Detected from magic bytes, not from the client-supplied content type.
 _MIME_EXTENSIONS = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+_EXPECTED_PILLOW_FORMAT = {"image/jpeg": "JPEG", "image/png": "PNG", "image/webp": "WEBP"}
+
+# Evidence photos below this are unusable as proof (and cheap to fake).
+MIN_IMAGE_DIMENSION = 200
+
+# Refuse absurd dimensions before decoding, so a small file cannot expand into gigabytes of pixels.
+MAX_IMAGE_PIXELS = 40_000_000
 
 
 def detect_image_mime(data: bytes) -> str | None:
@@ -25,6 +34,41 @@ def detect_image_mime(data: bytes) -> str | None:
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
     return None
+
+
+def _decode_or_415(data: bytes, expected_mime: str) -> None:
+    """Fully decode the file, proving it is a real image and not just a magic-byte prefix."""
+    try:
+        with Image.open(BytesIO(data)) as image:
+            image_format = image.format
+            width, height = image.size
+            if width * height > MAX_IMAGE_PIXELS:
+                raise HTTPException(
+                    status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                    detail="That image has too many pixels. Upload a normally sized photo.",
+                )
+            image.load()
+    except HTTPException:
+        raise
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="That file could not be read as an image. Upload the original photo.",
+        ) from exc
+
+    if image_format != _EXPECTED_PILLOW_FORMAT[expected_mime]:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="The file contents do not match a JPEG, PNG, or WebP image.",
+        )
+    if width < MIN_IMAGE_DIMENSION or height < MIN_IMAGE_DIMENSION:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=(
+                f"Photos must be at least {MIN_IMAGE_DIMENSION}×{MIN_IMAGE_DIMENSION} pixels "
+                "so the activity is visible."
+            ),
+        )
 
 
 def validate_image(data: bytes) -> str:
@@ -46,6 +90,7 @@ def validate_image(data: bytes) -> str:
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Upload a JPEG, PNG, or WebP photo.",
         )
+    _decode_or_415(data, mime)
     return mime
 
 

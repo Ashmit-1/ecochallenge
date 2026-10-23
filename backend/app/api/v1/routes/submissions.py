@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, File, Query, UploadFile, status
+from fastapi import APIRouter, File, Path, Query, UploadFile, status
 from fastapi.responses import FileResponse
 
-from app.api.deps import CurrentUser, SessionDep, VisionDep
+from app.api.deps import MAX_DB_INT, CurrentUser, SessionDep, VisionDep
 from app.core.config import get_settings
 from app.schemas.submission import SubmissionRead, SubmissionResult
 from app.services import challenge_service, profile_service, storage_service, submission_service
@@ -62,7 +62,7 @@ def list_my_submissions(
     user: CurrentUser,
     session: SessionDep,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    offset: Annotated[int, Query(ge=0, le=MAX_DB_INT)] = 0,
 ) -> list[SubmissionRead]:
     submissions = submission_service.list_submissions(
         session, user, limit=limit, offset=offset
@@ -76,7 +76,9 @@ def list_my_submissions(
     summary="One of your submissions",
 )
 def get_my_submission(
-    submission_id: int, user: CurrentUser, session: SessionDep
+    submission_id: Annotated[int, Path(ge=1, le=MAX_DB_INT)],
+    user: CurrentUser,
+    session: SessionDep,
 ) -> SubmissionRead:
     submission = submission_service.get_submission(session, user, submission_id)
     return submission_service.to_submission_read(submission)
@@ -89,7 +91,9 @@ def get_my_submission(
     responses={404: {"description": "Submission not found or not yours"}},
 )
 def get_submission_image(
-    submission_id: int, user: CurrentUser, session: SessionDep
+    submission_id: Annotated[int, Path(ge=1, le=MAX_DB_INT)],
+    user: CurrentUser,
+    session: SessionDep,
 ) -> FileResponse:
     submission = submission_service.get_submission(session, user, submission_id)
     path = storage_service.resolve_image_path(submission.image_path)

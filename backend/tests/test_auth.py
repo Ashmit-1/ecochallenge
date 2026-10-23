@@ -118,3 +118,35 @@ def test_patch_to_taken_name_is_409(client: TestClient, register):
         "/api/v1/auth/me", headers=other.headers, json={"display_name": "taken name"}
     )
     assert response.status_code == 409
+
+
+def test_deactivated_account_token_is_rejected(client: TestClient, register, db_session):
+    from app.models import User
+
+    user = register("Disabled User")
+    db_user = db_session.get(User, user.user["id"])
+    assert db_user is not None
+    db_user.is_active = False
+    db_session.add(db_user)
+    db_session.commit()
+
+    assert client.get("/api/v1/auth/me", headers=user.headers).status_code == 401
+    assert client.post(
+        "/api/v1/auth/login",
+        data={"username": user.user["email"], "password": user.password},
+    ).status_code == 403
+
+
+def test_token_without_an_expiry_claim_is_rejected(client: TestClient, register):
+    import jwt as pyjwt
+
+    from app.core.config import get_settings
+
+    user = register("No Expiry")
+    unsigned_expiry = pyjwt.encode(
+        {"sub": str(user.user["id"])}, get_settings().secret_key, algorithm="HS256"
+    )
+    response = client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {unsigned_expiry}"}
+    )
+    assert response.status_code == 401

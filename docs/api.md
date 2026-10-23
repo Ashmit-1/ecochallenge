@@ -9,7 +9,7 @@ and `auth/login`. Errors are `{"detail": "..."}`.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/health` | — | `{status, database}`; pings SQLite |
+| GET | `/health` | — | `{status, database, version}`; pings SQLite |
 | GET | `/meta` | — | App name, version, verification provider, disclaimer |
 
 ## Auth
@@ -22,7 +22,8 @@ and `auth/login`. Errors are `{"detail": "..."}`.
 | PATCH | `/auth/me` | bearer | `{display_name?}` | updated user |
 
 Login is an OAuth2 password form so Swagger's **Authorize** button works. Tokens expire after
-7 days; there is no refresh token (see [decisions.md](decisions.md)).
+7 days and must carry an `exp` claim; there is no refresh token (see [decisions.md](decisions.md)).
+A disabled account gets `403` on login, and any request with its old token gets `401`.
 
 ## Challenges
 
@@ -40,13 +41,18 @@ Login is an OAuth2 password form so Swagger's **Authorize** button works. Tokens
 | GET | `/submissions/{id}` | bearer | Own submission, `404` otherwise |
 | GET | `/submissions/{id}/image` | bearer | Own image bytes; `404` otherwise |
 
+> **Serving images in the frontend.** Photos are private: the endpoint requires a bearer token, so
+> a plain `<img src="...">` will not work. Fetch the URL with the `Authorization` header, turn the
+> response into an object URL (`URL.createObjectURL`), and revoke it when the component unmounts.
+> The response sets `Cache-Control: private, max-age=3600`.
+
 ### Submission response
 
 ```json
 {
   "submission": {
     "id": 42,
-    "challenge": {"id": 1, "slug": "bike-to-campus", "title": "Bike to Campus", "points": 50},
+    "challenge": {"id": 1, "slug": "bike-to-campus", "title": "Bike to Campus", "points": 50, "icon": "bike"},
     "status": "approved",
     "points_awarded": 50,
     "co2_saved_grams": 1000,
@@ -56,11 +62,22 @@ Login is an OAuth2 password form so Swagger's **Authorize** button works. Tokens
       "reason": "A bicycle is clearly visible…",
       "model": "gemini-2.5-flash"
     },
+    "image_url": "/api/v1/submissions/42/image",
     "created_at": "2026-10-23T09:12:00Z",
     "verified_at": "2026-10-23T09:12:04Z"
   },
   "profile": { "...": "same shape as GET /profile" },
-  "new_badges": [{ "key": "first-step", "name": "First Step" }]
+  "new_badges": [
+    {
+      "key": "first-step",
+      "name": "First Step",
+      "description": "Complete your first verified challenge.",
+      "icon": "sprout",
+      "earned": true,
+      "current": 1,
+      "target": 1
+    }
+  ]
 }
 ```
 
@@ -72,11 +89,11 @@ Statuses: `approved`, `rejected`, `error`, `pending` (reserved for a future asyn
 |---|---|
 | `404` | unknown/inactive challenge, or submission not owned by caller |
 | `409` | identical image already submitted |
-| `413` | file over `MAX_UPLOAD_MB` |
-| `415` | not a JPEG/PNG/WebP |
-| `422` | validation failure, or the challenge's own rules (`detail` explains) |
+| `413` | photo over `MAX_UPLOAD_MB` (or request body above the global limit) |
+| `415` | not a decodable JPEG/PNG/WebP, or smaller than 200×200 px |
+| `422` | request validation failure, or an empty file |
 | `429` | cooldown active; `detail` includes when it ends |
-| `502` | vision provider failed; submission recorded as `error`, no points awarded |
+| `502` | vision provider failed; submission recorded as `error`, no points awarded, same photo may be retried |
 
 ## Profile & leaderboard
 

@@ -7,6 +7,8 @@ from pydantic import EmailStr, Field, field_validator
 from app.schemas.common import APIModel, UTCDateTime
 
 # Letters, digits, spaces, and . _ - ' only. Keeps leaderboard names readable and printable.
+# Uniqueness is checked with SQLite's lower(), which folds ASCII only; Unicode case variants of a
+# name can therefore coexist. Accepted for v1 (see PROJECT_STATE.md known limitations).
 DISPLAY_NAME_PATTERN = r"^[\w .'\-]{2,30}$"
 
 

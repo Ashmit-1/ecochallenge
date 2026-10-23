@@ -9,11 +9,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.exc import IntegrityError
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# Allow multipart boundaries/headers on top of the photo itself.
+_MULTIPART_OVERHEAD_BYTES = 256 * 1024
 
 DESCRIPTION = """
 Turn everyday sustainable habits into visible progress.
@@ -24,6 +29,35 @@ awarded. Points feed a profile, badges, estimated CO₂ savings, and a leaderboa
 
 **AI checks are a deterrent, not proof.** CO₂ figures are estimates.
 """
+
+
+class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
+    """Reject an oversized body before Starlette parses and spools it to disk.
+
+    The upload handler also checks the size, but by then the whole multipart body has already been
+    consumed. This is the cheap first line of defence for clients that send ``Content-Length``;
+    a reverse proxy still needs its own limit for chunked bodies.
+    """
+
+    def __init__(self, app: ASGIApp, overhead_bytes: int = 0) -> None:
+        super().__init__(app)
+        self.overhead_bytes = overhead_bytes
+
+    async def dispatch(self, request, call_next):  # noqa: ANN001
+        # Read settings per request so tests and config changes are honoured.
+        limit = get_settings().max_upload_bytes + self.overhead_bytes
+        declared = request.headers.get("content-length")
+        if declared is not None:
+            try:
+                length = int(declared)
+            except ValueError:
+                length = 0
+            if length > limit:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body is too large."},
+                )
+        return await call_next(request)
 
 
 @asynccontextmanager
@@ -49,6 +83,10 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
 
+    # Added first = innermost; CORS added last so error responses still carry CORS headers.
+    app.add_middleware(
+        RequestBodyLimitMiddleware, overhead_bytes=_MULTIPART_OVERHEAD_BYTES
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

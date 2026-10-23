@@ -73,7 +73,9 @@ def _states_for(
         select(
             Submission.challenge_id,
             func.count(Submission.id),
-            func.max(Submission.created_at),
+            # Cooldown runs from approval time, not upload time (a retried error row keeps its
+            # original created_at).
+            func.max(func.coalesce(Submission.verified_at, Submission.created_at)),
         )
         .where(
             Submission.user_id == user_id,

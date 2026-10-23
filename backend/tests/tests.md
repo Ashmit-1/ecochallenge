@@ -16,11 +16,12 @@ uv run pytest tests/test_vision.py -v
 | [conftest.py](conftest.py) | Fixtures: engine, session, seeded DB, `TestClient`, registered users, submit helper, PNG factory |
 | [test_auth.py](test_auth.py) | Register, duplicate email/name (case-insensitive), login, JWT rejection, rename |
 | [test_challenges.py](test_challenges.py) | Seeded catalogue, points/cooldowns, anonymous vs personal state, inactive hiding |
-| [test_submissions.py](test_submissions.py) | Approve, reject, cooldown + expiry, duplicate photos, MIME/size/empty, provider outage + retry, pagination, private images |
+| [test_submissions.py](test_submissions.py) | Approve, reject, cooldown + expiry, cooldown-bypass regression, concurrent approvals, duplicate photos, invalid/empty/oversized images, provider outage + retry, pagination, private images |
 | [test_badges.py](test_badges.py) | Thresholds, progress caps, new-badge reporting, uniqueness of definitions |
 | [test_profile.py](test_profile.py) | Zero state, approval aggregates, rejections not scored, rank movement |
 | [test_leaderboard.py](test_leaderboard.py) | Ordering, shared ranks for ties, distinct completions, pagination limits |
 | [test_vision.py](test_vision.py) | Mock approve/reject, Gemini key enforcement, parsing, error mapping |
+| [test_storage.py](test_storage.py) | Magic bytes, real decode rejection, size cap, traversal protection, save/read/delete |
 | [test_seed.py](test_seed.py) | Idempotent seeding, deactivated challenges preserved, content refreshed |
 | [test_system.py](test_system.py) | Health, meta disclaimers, redirect, OpenAPI paths, settings parsing |
 
@@ -33,15 +34,18 @@ uv run pytest tests/test_vision.py -v
 - `client` overrides `get_session` with a session bound to that engine and overrides
   `get_vision_provider` with `MockVisionProvider()`.
 - `isolated_uploads` (autouse) repoints `settings.uploads_dir` at `tmp_path`.
-- `db_session` is the escape hatch for arranging state: backdating a timestamp to test cooldown
+- `db_session` is the escape hatch for arranging state: backdating `verified_at` to test cooldown
   expiry, or deactivating a challenge.
+- `png_bytes()` generates a real 320×320 PNG with Pillow. Upload validation fully decodes images,
+  so bare magic bytes are no longer enough to pass a test.
 
 ## Conventions
 
 - Assert on **observable API behaviour**, not internal calls, wherever possible.
 - One behaviour per test, with a name that states the rule ("cooldown blocks a second attempt").
 - Use the `submit` fixture rather than hand-building multipart bodies.
-- Need a rejection? Pass an image containing `b"MOCK-REJECT"`.
+- Need a rejection? Pass `png(marker=b"MOCK-REJECT")` — the marker is stored in a PNG text
+  chunk, so the file still decodes as a real image.
 - Never hit the live Gemini API from a test, even if a key exists.
 - New rule → new test in the matching file. A bug fix starts with a failing test.
 
