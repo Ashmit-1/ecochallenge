@@ -8,12 +8,15 @@ const BASE = "/api/v1";
 export class ApiError extends Error {
   status: number;
   detail: string;
+  /** Seconds from a Retry-After header (contract §5, 429 responses). */
+  retryAfterSeconds: number | null;
 
-  constructor(status: number, detail: string) {
+  constructor(status: number, detail: string, retryAfterSeconds: number | null = null) {
     super(detail);
     this.name = "ApiError";
     this.status = status;
     this.detail = detail;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 
   static async fromResponse(response: Response): Promise<ApiError> {
@@ -27,15 +30,22 @@ export class ApiError extends Error {
     } catch {
       // not JSON — keep statusText
     }
-    return new ApiError(response.status, detail);
+    const retryAfterHeader = response.headers?.get?.("Retry-After");
+    const parsedRetryAfter = Number(retryAfterHeader);
+    const retryAfterSeconds =
+      retryAfterHeader != null && Number.isFinite(parsedRetryAfter)
+        ? parsedRetryAfter
+        : null;
+    return new ApiError(response.status, detail, retryAfterSeconds);
   }
 }
 
 function csrfToken(): string {
-  const match = document.cookie
+  const row = document.cookie
     .split("; ")
-    .find((row) => row.startsWith("ecochallenge_csrf="));
-  return match ? decodeURIComponent(match.split("=")[1]) : "";
+    .find((r) => r.startsWith("ecochallenge_csrf="));
+  // Slice after the prefix — splitting on "=" would truncate values containing "="
+  return row ? decodeURIComponent(row.slice("ecochallenge_csrf=".length)) : "";
 }
 
 // --- 401 handling (contract §2.4: clear auth state and route to /login) ---
@@ -55,7 +65,10 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
 
-  if (!(init.body instanceof FormData)) {
+  // Default to JSON, but never clobber an explicit caller header: login sends
+  // application/x-www-form-urlencoded (OAuth2 form, contract §2) and overwriting
+  // that made every SPA login fail with 422.
+  if (!(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   if (method !== "GET" && method !== "HEAD") {

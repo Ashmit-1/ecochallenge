@@ -219,3 +219,70 @@ describe("ApiError", () => {
     expect(err.detail).toBe("Internal Server Error");
   });
 });
+
+describe("login content-type regression (H1) and contract §5 headers", () => {
+  beforeEach(() => {
+    Object.defineProperty(document, "cookie", { writable: true, value: "" });
+    globalThis.fetch = vi.fn();
+  });
+
+  it("preserves an explicit application/x-www-form-urlencoded header instead of clobbering to JSON", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ access_token: "ignored", token_type: "bearer", expires_in: 604800, user: { id: 1 } }),
+    });
+
+    await api("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ username: "s@campus.edu", password: "pw" }).toString(),
+    });
+
+    const [, init] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(new Headers(init.headers).get("Content-Type")).toBe("application/x-www-form-urlencoded");
+  });
+
+  it("still defaults to application/json when the caller sets none", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({}),
+    });
+
+    await api("/auth/register", { method: "POST", body: JSON.stringify({ email: "a@b.c" }) });
+
+    const [, init] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(new Headers(init.headers).get("Content-Type")).toBe("application/json");
+  });
+
+  it("decodes a CSRF cookie value containing '=' characters intact", async () => {
+    const value = "abc=def==";
+    document.cookie = `ecochallenge_csrf=${encodeURIComponent(value)}`;
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({}),
+    });
+
+    await api("/auth/me", { method: "PATCH", body: "{}" });
+
+    const [, init] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(new Headers(init.headers).get("X-CSRF-Token")).toBe(value);
+  });
+
+  it("reads Retry-After into ApiError.retryAfterSeconds on 429 (contract §5)", async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: "Too Many Requests",
+      headers: { get: (h: string) => (h === "Retry-After" ? "120" : null) },
+      json: () => Promise.resolve({ detail: "Cooldown active until tomorrow." }),
+    });
+
+    const err = await api("/challenges/x/submissions", { method: "POST", body: new FormData() }).catch((e: ApiError) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).retryAfterSeconds).toBe(120);
+    expect((err as ApiError).detail).toContain("Cooldown");
+  });
+});
