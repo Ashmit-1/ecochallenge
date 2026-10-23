@@ -1,9 +1,10 @@
 // lib/queries.ts — TanStack Query keys, fetchers, and hooks
 // Contract: frontend-backend-contract.md §4
 
-import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import type {
+  AuthResponse,
   ChallengeDetail,
   ChallengeSummary,
   HealthResponse,
@@ -150,6 +151,72 @@ export function useUpdateDisplayName() {
     onSuccess: (user) => {
       qc.setQueryData(queryKeys.me, user);
       qc.invalidateQueries({ queryKey: queryKeys.profile });
+    },
+  });
+}
+// --- Convenience hooks (useQuery wrappers) ---
+
+export function useMe() {
+  return useQuery(meQuery);
+}
+
+export function useChallenges() {
+  return useQuery(challengesQuery);
+}
+
+export function useChallengeDetail(slug: string) {
+  return useQuery({
+    ...challengeDetailQuery(slug),
+    enabled: !!slug,
+  });
+}
+
+export function useProfile() {
+  return useQuery(profileQuery);
+}
+
+export function useSubmissions(params?: { limit?: number; offset?: number }) {
+  return useQuery(submissionsQuery(params));
+}
+
+export function useLeaderboard(params?: { limit?: number; offset?: number }) {
+  return useQuery(leaderboardQuery(params));
+}
+
+export function useMeta() {
+  return useQuery(metaQuery);
+}
+
+// --- Auth mutations ---
+
+export function useLogin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ email, password }: { email: string; password: string }) => {
+      const body = new URLSearchParams({ username: email, password });
+      return api<AuthResponse>("/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+      });
+    },
+    onSuccess: (data) => {
+      // Contract: never store access_token; cache user from /auth/me
+      qc.setQueryData(queryKeys.me, data.user);
+    },
+  });
+}
+
+export function useRegister() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ email, password, display_name }: { email: string; password: string; display_name: string }) =>
+      api<AuthResponse>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ email, password, display_name }),
+      }),
+    onSuccess: (data) => {
+      qc.setQueryData(queryKeys.me, data.user);
     },
   });
 }

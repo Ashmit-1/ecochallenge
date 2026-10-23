@@ -2,12 +2,13 @@
 
 > Living document. **Update at every milestone**, not continuously. A fresh agent should read this
 > one file and know exactly where the project stands.
-> Last updated: 2026-10-23 (frontend milestone 1: scaffold + API client + TanStack Query + PWA shell)
+> Last updated: 2026-10-23 (frontend milestones 1–2: scaffold through all screens, auth, submission flow)
 
 ## Where we are
 
-**Phase:** backend complete, audited, hardened, live-verified, and now cookie-authenticated for a
-browser SPA. **Frontend: not started** — the owner will open a new session for it.
+**Phase:** backend complete and frozen. **Frontend milestones 1–2 complete** — all screens built,
+typed API client, TanStack Query layer, PWA shell, auth flow, and 11 tests passing.
+Vite production build succeeds cleanly.
 
 The backend is frozen except for defects. The frontend's complete interface lives in
 [frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md); that file, not the
@@ -63,18 +64,32 @@ unlocked once, the cooldown became active, and history recorded both attempts.
 - Visual spec: [frontend/design.md](frontend/design.md) — palette, Fraunces + Figtree type,
   screen intent, states, motion, accessibility, anti-patterns.
 
+## Frontend milestone 2 (complete)
+
+- Shared UI primitives: Button, Card, Chip, IconChip, Skeleton, EmptyState, Input (Fresh Botanical theme).
+- Layout with responsive nav: desktop top bar + mobile bottom tab bar (Challenges, Leaderboard, Profile).
+- Auth pages: Login (form-urlencoded per contract) and Register with client-side validation.
+- Auth guards: ProtectedRoute (redirects to /login on 401), PublicOnlyRoute (redirects away if logged in).
+- Challenges list: cards with lucide icons, points chip, CO2 chip, cooldown countdown, completion count.
+- Challenge detail: full info card + submission flow (file picker, preview, upload mutation, verifying/approved/rejected states, new badge celebration).
+- Profile: stats grid (points, rank, approved, CO2), editable display name, badge progress bars with target tracking.
+- Leaderboard: editorial list with tabular rank numerals, current-user mint highlight, tie semantics preserved.
+- Lazy-loaded routes with Suspense spinner.
+- vite build succeeds cleanly (1999 modules, code-split routes, self-hosted fonts); 11 Vitest tests pass.
+- All convenience hooks added to queries.ts: useMe, useLogin, useRegister, useChallenges, useChallengeDetail, useProfile, useSubmissions, useLeaderboard, useMeta.
+
 ## Not built yet
 
-- Frontend milestone 1 complete: scaffold, API client, TanStack Query, PWA shell, tests (see [frontend/frontend.md](frontend/frontend.md)).
-- Frontend screens: auth, challenges, submit, profile, leaderboard (not yet built).
+- Polish: skeleton loaders shaped like real cards, empty-state botanical illustrations, motion transitions, paper-grain overlay.
+- Accessibility audit pass (focus rings, aria-live regions, prefers-reduced-motion).
+- End-to-end integration testing against live backend.
 - Password reset / email verification (out of v1 scope).
 - Admin/audit portal, reward redemption, photo-metadata anti-spoofing (future enhancements).
 - Deployment artifacts (Docker/nginx/systemd) — waiting on the VPS decision.
 
 ## Next up
 
-1. A new session scaffolds the frontend from [frontend/frontend.md](frontend/frontend.md) and the
-   contract, building against the existing cookie auth.
+1. Polish pass: accessibility audit, motion transitions, empty-state illustrations.
 2. Revisit deployment once the VPS is confirmed.
 
 ## Known limitations (accepted for v1)
