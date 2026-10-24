@@ -32,6 +32,7 @@ frontend/   React PWA (screens, typed API client, TanStack Query, design system)
 docs/       Architecture, decisions, API reference
 AGENTS.md   Map for AI coding agents (read this if you are one)
 PROJECT_STATE.md  What currently works
+deploy.md   Production deployment: Cloud Run + Turso + R2, frontend on Cloudflare Pages
 ```
 
 ## Run it
@@ -58,6 +59,12 @@ bunx tsc -b && bunx vitest run && bunx vite build   # the verification gate
 
 The API is also fully usable through the interactive docs at `/docs`; its complete interface
 is specified in [frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md).
+
+## Deploy
+
+Production runs the backend as a container on Google Cloud Run (Turso for the database,
+Cloudflare R2 for photos) and the frontend on Cloudflare Pages, with a Pages Function making
+`/api/*` same-origin. Step-by-step commands: [deploy.md](deploy.md).
 
 ## Status
 

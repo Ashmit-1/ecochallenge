@@ -5,7 +5,7 @@ compiled by Pages, not by Vite, so nothing here ships in `dist/`.
 
 | Path | Purpose |
 |---|---|
-| [api/[[path]].ts](api/[[path]].ts) | Proxies `/api/*` to the Cloud Run backend so the SPA stays same-origin |
+| `api/[[path]].ts` | Proxies `/api/*` to the Cloud Run backend so the SPA stays same-origin |
 
 ## Why the proxy exists
 

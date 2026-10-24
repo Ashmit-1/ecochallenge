@@ -14,4 +14,4 @@ implementation detail belongs in each code folder's own `.md`.
 
 - Building or debugging code → [../AGENTS.md](../AGENTS.md) for the navigation map.
 - Current status → [../PROJECT_STATE.md](../PROJECT_STATE.md).
-- Deployment notes will live in `deployment.md` once a VPS is confirmed.
+- Deploying it → [../deploy.md](../deploy.md) (Cloud Run + Turso + R2, frontend on Cloudflare Pages).

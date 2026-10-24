@@ -2,7 +2,7 @@
 
 > Living document. **Update at every milestone**, not continuously. A fresh agent should read this
 > one file and know exactly where the project stands.
-> Last updated: 2026-10-23 (frontend revisions: type swap to Newsreader + Manrope, eco-doodle wallpaper, milestones 1–4 + audit fixes: 68 tests, all gates green)
+> Last updated: 2026-10-24 (deployment branch: Cloud Run image, Turso libSQL, Cloudflare R2 photos, Pages API proxy, deploy guide)
 
 ## Where we are
 
@@ -15,6 +15,11 @@ design polish + accessibility, **68 tests passing**. Gates: `tsc -b` 0 errors, o
 The backend is frozen except for defects. The frontend's complete interface lives in
 [frontend/frontend-backend-contract.md](frontend/frontend-backend-contract.md); that file, not the
 backend source, is the frontend's point of contact.
+
+**Deployment prep (branch `deployment`):** the backend is containerised for Google Cloud Run, can
+run against Turso (hosted libSQL) instead of the local SQLite file, and stores photos in
+Cloudflare R2 instead of container disk. The SPA reaches the API through a Cloudflare Pages proxy
+function. The full runbook is [deploy.md](deploy.md); the live deployment itself is not done yet.
 
 Live verification passed end to end: a real campus bicycle photo was approved (confidence 0.95,
 50 points), a laptop photo on another challenge was rejected (confidence 1.0, 0 points), the badge
@@ -36,13 +41,13 @@ unlocked once, the cooldown became active, and history recorded both attempts.
 - Rule-based badges (6), new-badge reporting on approval.
 - Leaderboard with `RANK()`, shared ranks on ties, pagination, current-user flag.
 - Request-body limit and CSRF middleware.
-- 97 pytest tests, no network; `alembic check` reports no drift.
+- 108 pytest tests, no network; `alembic check` reports no drift.
 
 ## Evidence for the claims above
 
 | Check | Result |
 |---|---|
-| `uv run pytest` | 97 passed |
+| `uv run pytest` | 108 passed |
 | Live Gemini: campus bicycle photo | `approved`, confidence 0.95, +50 points, +1,000 g CO₂ |
 | Live Gemini: laptop photo on "recycle waste" | `rejected`, confidence 1.0, 0 points, concrete reason |
 | Live profile after both | 50 pts, 1 approved, 1 rejected, rank 1, cooldown active |
@@ -201,18 +206,56 @@ background was monotonous. Both locked decisions were re-chosen (owner picked fr
   paste defect (wallpaper resolved to `none`) and the leftover old font packages — both fixed
   above and now guarded by the tests + `check-doodle.ts`.
 
+## Deployment artifacts (branch `deployment`, complete — not yet deployed)
+
+Target: backend container on **Google Cloud Run**, database on **Turso** (hosted libSQL), photos in
+**Cloudflare R2**, frontend on **Cloudflare Pages**. Runbook: [deploy.md](deploy.md).
+
+- **Image:** `backend/Dockerfile` (two-stage uv build) + `backend/docker-entrypoint.sh` —
+  `alembic upgrade head` → `seed` → uvicorn on `$PORT` with proxy headers, running as uid 10001.
+  `.dockerignore` and `.gcloudignore` keep `.env`, local DB, uploads, and tests out of the image
+  and out of Cloud Build's source upload.
+- **Database:** `DATABASE_URL=libsql://...` selects `sqlalchemy-libsql` with `TURSO_AUTH_TOKEN`;
+  Alembic builds its engine through the same helper, so migrations hit the same hosted DB. Local
+  development and the test suite still use the standard `sqlite3` driver and a local file.
+- **Photos:** `STORAGE_BACKEND=r2` writes/reads/deletes through the S3-compatible R2 API under the
+  same `{user_id}/{uuid}.ext` keys; the owner-only image route streams from either backend, so
+  history thumbnails survive restarts. Local default stays on disk.
+- **Frontend:** `frontend/functions/api/[[path]].ts` proxies `/api/*` to Cloud Run. Pages
+  `_redirects` cannot proxy external domains, so this function is what keeps the API same-origin —
+  cookies and the CSRF double-submit token work unchanged, with no frontend source changes.
+
+Verified here (no cloud credentials available, so nothing was provisioned):
+
+| Check | Result |
+|---|---|
+| `uv run pytest` | 108 passed (11 new: URL/engine wiring, R2 round trip, image route) |
+| libSQL end-to-end (local libsql file, same driver) | migrate, seed, register, upload → approved 50 pts, second attempt 429, leaderboard, private image 200 |
+| R2 round trip against a real S3 endpoint | object stored under the user id, route returned identical bytes, nothing written locally |
+| `docker build` + `docker run` | fresh container migrated + seeded, health 200, challenge list 5, upload approved, image byte-identical, uid 10001, no `.env` in image |
+| Pages Function (real runtime) | path + query rewritten, POST body/cookies/CSRF forwarded, `Set-Cookie` returned, missing `API_ORIGIN` → 500 |
+| `wrangler pages functions build` | compiled successfully |
+| Frontend gates | `tsc -b` 0 errors, vitest 68/68 |
+
+Still unverified until resources exist: Turso's remote write concurrency (the cooldown/points
+re-check assumes write serialisation), Cloud Run's real cold-start/timeout behaviour, and the
+end-to-end flow through an actual Pages deployment.
+
 ## Not built yet
 
 - Visual review of screens at 360 px + laptop widths (dev server + backend are running) in a browser.
 - Password reset / email verification (out of v1 scope).
 - Admin/audit portal, reward redemption, photo-metadata anti-spoofing (future enhancements).
-- Deployment artifacts (Docker/nginx/systemd) — waiting on the VPS decision.
+- Live deployment of the artifacts above (needs the GCP, Turso, Cloudflare, and Gemini accounts).
 
 ## Next up
 
-1. Visual review in a browser at 360 px + laptop widths (frontend dev server :5173,
-   backend :8000 — both up) and on-device PWA install check.
-2. Revisit deployment once the VPS is confirmed.
+1. Provision Turso, R2, Cloud Run, and Pages following [deploy.md](deploy.md), then run the live
+   verification list at the end of that guide.
+2. Re-check write concurrency against the provisioned Turso database (approve the same challenge
+   twice at once; expect one 201 and one 429).
+3. Visual review in a browser at 360 px + laptop widths (frontend dev server :5173,
+   backend :8000) and on-device PWA install check.
 
 ## Known limitations (accepted for v1)
 
@@ -226,7 +269,8 @@ background was monotonous. Both locked decisions were re-chosen (owner picked fr
 - Display-name uniqueness uses SQLite `lower()`, which folds ASCII only — Unicode case variants of
   a name can coexist.
 - Request-size middleware reads `Content-Length`; a chunked upload still needs a proxy limit.
-- SQLite + one VPS; no horizontal scaling.
+- Production is Turso + Cloud Run; remote write concurrency and multi-instance migration races are
+  unverified until the resources are provisioned (deploy with `--max-instances 1` for migrations).
 - `points_total` is denormalized; if it ever drifts, rebuild with `SUM(points_awarded)` over that
   user's approved submissions.
 
@@ -235,7 +279,7 @@ background was monotonous. Both locked decisions were re-chosen (owner picked fr
 ```bash
 cd backend
 uv run alembic upgrade head
-uv run pytest -q             # 97 backend tests
+uv run pytest                # 108 backend tests
 uv run fastapi dev            # http://127.0.0.1:8000/docs
 
 cd frontend

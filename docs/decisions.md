@@ -6,7 +6,9 @@ Short records of choices that would be expensive to reverse. Newest last.
 
 ## D1 — SQLite via SQLModel, sync sessions
 
-**Context.** Small-scale single-VPS app, one developer, no concurrent-write pressure.
+**Context.** Small-scale single-server app, one developer, no concurrent-write pressure.
+(Production now uses Turso, a hosted SQLite-compatible database — see D17. The same models and
+sync sessions apply.)
 **Decision.** SQLite + SQLModel + synchronous SQLAlchemy sessions, `def` endpoints (FastAPI runs
 them in a threadpool), Alembic for migrations.
 **Why.** SQLite removes an entire ops surface. Sync SQLModel is far less error-prone than async
@@ -57,8 +59,8 @@ with no queue, worker, or polling UI. `pending` remains a valid status for a fut
 are served by `GET /submissions/{id}/image`, which checks ownership.
 **Why.** No cloud account or credentials; files travel with the database in backups. Evidence
 photos are private, so static serving (guessable URLs) was rejected.
-**Cost.** Single-VPS coupling. Moving to S3 means changing the storage service only, because
-routes never touch the filesystem directly.
+**Cost.** Server-disk coupling. Moving to S3 means changing the storage service only, because
+routes never touch the filesystem directly — realised in production by D18 (Cloudflare R2).
 
 ## D7 — One-day cooldown per challenge, applied to approvals
 
@@ -152,3 +154,38 @@ cross-site POST before the header check even runs.
 **Cost.** The SPA needs a fetch wrapper that adds the header and sets `credentials: "include"`.
 Cookies require HTTPS in production. If the frontend and API ever live on different registrable
 domains, `SameSite`/`Secure`/`COOKIE_DOMAIN` must be revisited.
+
+## D17 — Turso (hosted libSQL) in production, local SQLite in development
+
+**Context.** Cloud Run's filesystem is ephemeral; the SQLite file, and the write-lock-based award
+guarantee built on it, would vanish with every cold start.
+**Decision.** `DATABASE_URL=libsql://...` selects the `sqlalchemy-libsql` dialect through one
+engine builder shared by the app and Alembic; `TURSO_AUTH_TOKEN` authenticates. Local development
+and the test suite keep the plain `sqlite3` driver and a file.
+**Why.** The models and queries are unchanged, so none of the points/cooldown logic is rewritten,
+and the dialect still uses deferred transactions — the award path's conditional `UPDATE` keeps
+taking the write lock.
+**Cost.** Network round-trips instead of local file I/O, a second driver in the image, and Turso
+becomes an external dependency. Write serialisation is now Turso's server-side behaviour, so D14's
+concurrency tests must be re-run against the provisioned database.
+
+## D18 — Photos in Cloudflare R2 when `STORAGE_BACKEND=r2`
+
+**Context.** Evidence photos lived on container disk, which Cloud Run discards.
+**Decision.** `storage_service` writes, reads, and deletes S3-compatible objects under the same
+`{user_id}/{uuid}.ext` keys. Local disk stays the default. The bucket is private; the owner-only
+route streams bytes from whichever backend is configured.
+**Why.** R2 has no egress fees, and only the storage service changed — exactly the seam D6 relied
+on. Keys stay backend-agnostic, so existing rows need no migration.
+**Cost.** Photo reads become network calls and uploads depend on R2 availability; boto3 is one
+more dependency.
+
+## D19 — Same-origin `/api` through a Cloudflare Pages Function
+
+**Context.** Pages' `_redirects` cannot proxy external domains, and the SPA calls relative
+`/api/v1/...` paths with httpOnly cookies.
+**Decision.** `frontend/functions/api/[[path]].ts` forwards `/api/*` to the Cloud Run service named
+by `API_ORIGIN`, preserving method, body, cookies, and headers.
+**Why.** Same-origin keeps `SameSite=Lax` and double-submit CSRF (D16) valid, avoids CORS
+entirely, and needs no frontend source changes.
+**Cost.** One more deploy-time setting, and every API request takes an extra hop.

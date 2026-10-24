@@ -88,12 +88,16 @@ A change to a rule touches `services/`. A change to a field touches `models/` + 
 
 ## Environments
 
-| | Development | Test |
-|---|---|---|
-| Database | `backend/data/ecochallenge.db` | temp file per test |
-| Vision | Gemini if key present, else configured mock | always mock |
-| Config | `backend/.env` | overridden fixtures |
+| | Development | Test | Production |
+|---|---|---|---|
+| Database | `backend/data/ecochallenge.db` (sqlite3) | temp file per test | Turso, hosted libSQL |
+| Photos | `backend/uploads/` | temp dir per test | Cloudflare R2 (private bucket) |
+| Vision | Gemini if key present, else configured mock | always mock | Gemini (`VISION_PROVIDER=gemini`) |
+| Config | `backend/.env` | overridden fixtures | environment variables + Secret Manager |
+| Runtime | `uv run fastapi dev` | pytest | Cloud Run container (`backend/Dockerfile`), uvicorn on `$PORT` |
 
-There is no production environment yet; a VPS is planned but unconfirmed. When it happens, the
-only code-level change needed is a real `SECRET_KEY`, a real `DATABASE_URL`, strict
-`CORS_ORIGINS`, and a reverse proxy in front of `fastapi run`.
+The same code runs in all three: `DATABASE_URL` picks the SQLite driver, and `STORAGE_BACKEND`
+picks the photo backend. Production is the container in `backend/Dockerfile`; its entrypoint runs
+`alembic upgrade head` and the seed before uvicorn starts. The SPA is served by Cloudflare Pages,
+whose `/api/*` Function forwards to Cloud Run so the API stays same-origin (cookies and CSRF work
+without CORS). Deployment steps: [../deploy.md](../deploy.md).

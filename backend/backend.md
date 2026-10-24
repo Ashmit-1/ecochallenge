@@ -9,6 +9,10 @@ Run every command from this directory.
 | [alembic/](alembic/alembic.md) | Migration environment and versioned schema changes |
 | [tests/](tests/tests.md) | Pytest suite: isolated DB per test, mocked vision |
 | [alembic.ini](alembic.ini) | Alembic config; DB URL comes from `app.core.config` |
+| [Dockerfile](Dockerfile) | Cloud Run image: two-stage uv build, non-root runtime, `$PORT` |
+| [docker-entrypoint.sh](docker-entrypoint.sh) | Migrate → seed → uvicorn; runs on every container start |
+| [.dockerignore](.dockerignore) | Keeps `.env`, local state, and tests out of the image |
+| [.gcloudignore](.gcloudignore) | Keeps `.env` and local state out of `gcloud run deploy --source` uploads |
 | [pyproject.toml](pyproject.toml) | Dependencies, `seed` script entry, pytest config |
 | [uv.lock](uv.lock) | Locked dependency graph — commit it |
 | [.env.example](.env.example) | All settings, safe to commit. Copy to `.env` |
@@ -29,6 +33,18 @@ uv run pytest -q              # tests
 
 If `uv` reports `Read-only file system` for its cache, prefix with
 `UV_CACHE_DIR=/tmp/uv-cache`.
+
+## Container / deployment
+
+The container is built from [Dockerfile](Dockerfile) and started by
+[docker-entrypoint.sh](docker-entrypoint.sh), which applies `alembic upgrade head`, runs the seed,
+then starts uvicorn on Cloud Run's `$PORT` with proxy headers. Production configuration comes from
+environment variables only:
+
+- `DATABASE_URL=libsql://<db>-<org>.turso.io` + `TURSO_AUTH_TOKEN` → Turso instead of a local file;
+- `STORAGE_BACKEND=r2` + the four `R2_*` settings → photos in Cloudflare R2 instead of `uploads/`.
+
+Full steps (database, bucket, secrets, deploy, rollback): [../deploy.md](../deploy.md).
 
 ## Gotchas
 
