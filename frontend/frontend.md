@@ -9,8 +9,9 @@ See [src/src.md](src/src.md) for the source map.
 |---|---|
 | [frontend-backend-contract.md](frontend-backend-contract.md) | **The only source of truth about the backend.** Auth, endpoints, types, errors, PWA rules |
 | [design.md](design.md) | Visual direction, palette, type, layout, states, motion, accessibility, anti-patterns |
+| [setup.md](setup.md) | **Start here:** prerequisites, one-time setup, run, and verification gate |
 | [src/src.md](src/src.md) | Source tree navigation |
-| README.md | Run/verify commands for the frontend |
+| README.md | Vite template default (boilerplate) — setup instructions live in setup.md |
 
 ## Locked decisions
 
@@ -51,6 +52,7 @@ frontend/
 ├── vite.config.ts          dev proxy /api → http://127.0.0.1:8000; vitest config (`test` key)
 ├── tsconfig*.json          NOTE: root tsconfig is references-only — typecheck with `tsc -b`, not bare `tsc --noEmit` (which checks nothing)
 ├── package.json            scripts: dev, build (tsc -b && vite build), preview, lint, test
+├── setup.md                prerequisites + setup/run/verification (start here)
 └── frontend.md             this file
 ```
 
