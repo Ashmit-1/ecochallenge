@@ -61,9 +61,12 @@ class Settings(BaseSettings):
     # None = secure only in production. Set explicitly only for unusual local HTTPS setups.
     cookie_secure: bool | None = None
 
-    vision_provider: Literal["gemini", "mock"] = "gemini"
+    vision_provider: Literal["gemini", "mock", "openai"] = "gemini"
     gemini_api_key: str = ""
     gemini_model: str = "gemma-4-26b-a4b-it"  # verified to support image + JSON schema
+    openai_api_key: str = ""
+    openai_base_url: str = ""
+    openai_model: str = ""
     vision_timeout_seconds: float = 30.0
 
     @field_validator("cors_origins", mode="before")
