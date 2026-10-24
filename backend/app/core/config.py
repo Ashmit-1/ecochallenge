@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     ]
 
     database_url: str = f"sqlite:///{BACKEND_DIR / 'data' / 'ecochallenge.db'}"
+    # Required when DATABASE_URL points at a Turso/libSQL host; unused for a local file.
+    turso_auth_token: str = ""
     uploads_dir: Path = Path("./uploads")
     max_upload_mb: int = 6
 
@@ -65,9 +67,24 @@ class Settings(BaseSettings):
         return value
 
     @property
+    def is_libsql(self) -> bool:
+        """True when the database is opened through the libSQL driver (local or Turso)."""
+        return self.database_url.startswith(("libsql://", "sqlite+libsql://"))
+
+    @property
     def sqlalchemy_url(self) -> str:
-        """Absolute SQLite URL so the CWD never changes which DB is opened."""
+        """Normalise ``DATABASE_URL`` into a URL SQLAlchemy can open.
+
+        Local SQLite paths become absolute so the CWD never changes which DB is opened.
+        A Turso ``libsql://`` URL gains the dialect prefix and TLS.
+        """
         url = self.database_url
+        if url.startswith("sqlite+libsql://"):
+            return url
+        if url.startswith("libsql://"):
+            host = url[len("libsql://") :]
+            separator = "&" if "?" in host else "?"
+            return f"sqlite+libsql://{host}{separator}secure=true"
         prefix = "sqlite:///"
         if not url.startswith(prefix):
             return url

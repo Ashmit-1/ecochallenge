@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import BACKEND_DIR, Settings, get_settings
+from app.db.session import _connect_args, build_engine
 
 
 def test_health_reports_ok(client: TestClient):
@@ -61,6 +63,40 @@ def test_relative_sqlite_url_is_resolved_against_the_backend_directory():
         _env_file=None, secret_key="x", database_url="sqlite:///./data/test.db"
     )
     assert settings.sqlalchemy_url == f"sqlite:///{BACKEND_DIR / 'data' / 'test.db'}"
+
+
+def test_turso_url_gains_the_libsql_dialect_and_tls():
+    settings = Settings(
+        _env_file=None, secret_key="x", database_url="libsql://ecochallenge-acme.turso.io"
+    )
+    assert settings.is_libsql
+    assert settings.sqlalchemy_url == "sqlite+libsql://ecochallenge-acme.turso.io?secure=true"
+
+
+def test_normalised_libsql_url_is_not_rewritten_twice():
+    settings = Settings(
+        _env_file=None, secret_key="x", database_url="sqlite+libsql:///tmp/local.db"
+    )
+    assert settings.sqlalchemy_url == "sqlite+libsql:///tmp/local.db"
+
+
+def test_libsql_engine_uses_the_dialect_and_the_auth_token():
+    engine = build_engine("sqlite+libsql://db.turso.io?secure=true", auth_token="token")
+    assert engine.dialect.driver == "libsql"
+    assert _connect_args("sqlite+libsql://db.turso.io", auth_token="token") == {
+        "auth_token": "token"
+    }
+    engine.dispose()
+
+
+def test_libsql_host_without_a_token_fails_loudly():
+    with pytest.raises(RuntimeError, match="TURSO_AUTH_TOKEN"):
+        build_engine("sqlite+libsql://db.turso.io?secure=true", auth_token="")
+
+
+def test_remote_turso_needs_a_token_but_local_sqlite_does_not():
+    assert _connect_args("sqlite:///tmp/dev.db") == {"check_same_thread": False}
+    assert _connect_args("sqlite+libsql:///tmp/embedded.db") == {}
 
 
 def test_upload_limit_is_converted_to_bytes():

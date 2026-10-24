@@ -12,7 +12,7 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import pool
 from sqlmodel import SQLModel
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -20,6 +20,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from app.core.config import get_settings  # noqa: E402
+from app.db.session import build_engine  # noqa: E402
 from app.models import Challenge, Submission, User  # noqa: E402,F401  (register tables)
 
 config = context.config
@@ -48,11 +49,8 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    # Same driver arguments as the app, so a Turso URL also authenticates here.
+    connectable = build_engine(settings.sqlalchemy_url, poolclass=pool.NullPool)
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
