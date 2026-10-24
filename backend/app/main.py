@@ -111,6 +111,11 @@ async def lifespan(_app: FastAPI):
             "VISION_PROVIDER=gemini but GEMINI_API_KEY is empty. "
             "Submissions will return 502 until a key is added, or set VISION_PROVIDER=mock."
         )
+    if settings.vision_provider == "openai" and (not settings.openai_api_key or not settings.openai_base_url):
+        logger.warning(
+            "VISION_PROVIDER=openai but OPENAI_API_KEY or OPENAI_BASE_URL is empty. "
+            "Submissions will return 502 until configured, or set VISION_PROVIDER=mock."
+        )
     if settings.storage_backend == "r2" and not settings.r2_configured:
         logger.warning(
             "STORAGE_BACKEND=r2 but the R2 settings are incomplete. "

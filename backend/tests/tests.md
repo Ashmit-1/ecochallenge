@@ -22,6 +22,7 @@ uv run pytest tests/test_vision.py -v
 | [test_profile.py](test_profile.py) | Zero state, approval aggregates, rejections not scored, rank movement |
 | [test_leaderboard.py](test_leaderboard.py) | Ordering, shared ranks for ties, distinct completions, pagination limits |
 | [test_vision.py](test_vision.py) | Mock approve/reject, Gemini key enforcement, parsing, error mapping |
+| [test_vision_openai.py](test_vision_openai.py) | OpenAI-compatible/Cloudflare Workers AI provider tests, parsing, fences, error mapping |
 | [test_storage.py](test_storage.py) | Magic bytes, real decode rejection, size cap, traversal protection, save/read/delete |
 | [test_seed.py](test_seed.py) | Idempotent seeding, deactivated challenges preserved, content refreshed |
 | [test_system.py](test_system.py) | Health, meta disclaimers, redirect, OpenAPI paths, settings parsing |

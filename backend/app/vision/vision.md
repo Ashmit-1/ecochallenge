@@ -7,6 +7,7 @@ Turns a submitted photo into a verdict: `approved`, `confidence`, `reason`.
 | [base.py](base.py) | `VisionProvider` protocol, `VerificationRequest/Result`, error types |
 | [mock.py](mock.py) | Deterministic offline provider — default in tests, available in dev |
 | [gemini.py](gemini.py) | Live Google Gemini provider, structured JSON output |
+| [openai.py](openai.py) | Live OpenAI-compatible provider (Cloudflare Workers AI, vLLM, etc.) |
 | [factory.py](factory.py) | Chooses the provider from `VISION_PROVIDER` |
 | [__init__.py](__init__.py) | Public re-exports |
 
