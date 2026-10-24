@@ -2,7 +2,8 @@
 
 > Living document. **Update at every milestone**, not continuously. A fresh agent should read this
 > one file and know exactly where the project stands.
-> Last updated: 2026-10-24 (deployment branch: Cloud Run image, Turso libSQL, Cloudflare R2 photos, Pages API proxy, deploy guide)
+> Last updated: 2026-10-24 (deployment branch: Cloud Run image, Turso libSQL, Cloudflare R2 photos,
+> Pages API proxy, deploy guide; hosted Turso database provisioned + seeded, Cloud Run/Pages pending)
 
 ## Where we are
 
@@ -206,7 +207,7 @@ background was monotonous. Both locked decisions were re-chosen (owner picked fr
   paste defect (wallpaper resolved to `none`) and the leftover old font packages — both fixed
   above and now guarded by the tests + `check-doodle.ts`.
 
-## Deployment artifacts (branch `deployment`, complete — not yet deployed)
+## Deployment artifacts (branch `deployment`, Turso live — Cloud Run + Pages pending)
 
 Target: backend container on **Google Cloud Run**, database on **Turso** (hosted libSQL), photos in
 **Cloudflare R2**, frontend on **Cloudflare Pages**. Runbook: [deploy.md](deploy.md).
@@ -225,7 +226,16 @@ Target: backend container on **Google Cloud Run**, database on **Turso** (hosted
   `_redirects` cannot proxy external domains, so this function is what keeps the API same-origin —
   cookies and the CSRF double-submit token work unchanged, with no frontend source changes.
 
-Verified here (no cloud credentials available, so nothing was provisioned):
+### Provisioned
+
+| Resource | Status |
+|---|---|
+| Turso database `ecochallenge-ashmit-1` (`aws-ap-south-1`) | **live.** `alembic upgrade head` applied `f3f9b1b53a8a`, `seed` inserted the 5 challenges, and the app served `/api/v1/health` (`database: ok`) + 5 challenges from the hosted database |
+| Cloudflare R2 bucket `ecochallenge-photos` | name decided; **API token not issued yet** (dashboard-only), so the R2 path has only been exercised against a generic S3 endpoint |
+| Cloud Run service `ecochallenge-api` | not created yet — planned as a GitHub-connected continuous deploy from `backend/Dockerfile` |
+| Cloudflare Pages project | not created yet |
+
+### Verified
 
 | Check | Result |
 |---|---|
@@ -236,24 +246,27 @@ Verified here (no cloud credentials available, so nothing was provisioned):
 | Pages Function (real runtime) | path + query rewritten, POST body/cookies/CSRF forwarded, `Set-Cookie` returned, missing `API_ORIGIN` → 500 |
 | `wrangler pages functions build` | compiled successfully |
 | Frontend gates | `tsc -b` 0 errors, vitest 68/68 |
+| Hosted Turso (real database) | migrations applied, 5 challenges seeded, `uvicorn` booted against it and served health + catalogue |
 
-Still unverified until resources exist: Turso's remote write concurrency (the cooldown/points
-re-check assumes write serialisation), Cloud Run's real cold-start/timeout behaviour, and the
-end-to-end flow through an actual Pages deployment.
+Still unverified: Turso's remote **write** concurrency (the cooldown/points re-check assumes write
+serialisation) and the two-simultaneous-approvals test on the hosted database, Cloud Run's real
+cold-start/timeout behaviour, R2 with a real issued token, and the end-to-end flow through an
+actual Pages deployment.
 
 ## Not built yet
 
 - Visual review of screens at 360 px + laptop widths (dev server + backend are running) in a browser.
 - Password reset / email verification (out of v1 scope).
 - Admin/audit portal, reward redemption, photo-metadata anti-spoofing (future enhancements).
-- Live deployment of the artifacts above (needs the GCP, Turso, Cloudflare, and Gemini accounts).
+- Cloud Run service, R2 API token, and Pages project (need GCP + Cloudflare dashboard access).
 
 ## Next up
 
-1. Provision Turso, R2, Cloud Run, and Pages following [deploy.md](deploy.md), then run the live
-   verification list at the end of that guide.
-2. Re-check write concurrency against the provisioned Turso database (approve the same challenge
-   twice at once; expect one 201 and one 429).
+1. Issue the R2 API token for `ecochallenge-photos`, then create the Cloud Run service from the
+   GitHub repo (`backend/Dockerfile`) and the Pages project by following [deploy.md](deploy.md).
+   Turso is already migrated and seeded.
+2. Re-check write concurrency against `ecochallenge-ashmit-1` (approve the same challenge twice at
+   once; expect one 201 and one 429).
 3. Visual review in a browser at 360 px + laptop widths (frontend dev server :5173,
    backend :8000) and on-device PWA install check.
 
@@ -269,8 +282,8 @@ end-to-end flow through an actual Pages deployment.
 - Display-name uniqueness uses SQLite `lower()`, which folds ASCII only — Unicode case variants of
   a name can coexist.
 - Request-size middleware reads `Content-Length`; a chunked upload still needs a proxy limit.
-- Production is Turso + Cloud Run; remote write concurrency and multi-instance migration races are
-  unverified until the resources are provisioned (deploy with `--max-instances 1` for migrations).
+- Production is Turso + Cloud Run; remote write concurrency is unverified on the hosted database,
+  and boot-time migrations make multi-instance cold starts racy (keep max instances at 1).
 - `points_total` is denormalized; if it ever drifts, rebuild with `SUM(points_awarded)` over that
   user's approved submissions.
 
