@@ -48,6 +48,7 @@ frontend/
 ├── public/                 manifest.json, sw.js (app shell only, never /api/*), favicon.svg,
 │   │                       icons/ (192, 512, maskable) (+ public.md, icons/icons.md)
 ├── scripts/                 generate-icons.ts (PWA icons), gen-doodle.py (wallpaper tile) (+ scripts.md)
+├── functions/              Cloudflare Pages Function: /api/* → Cloud Run, same-origin (+ functions.md)
 ├── index.html
 ├── vite.config.ts          dev proxy /api → http://127.0.0.1:8000; vitest config (`test` key)
 ├── tsconfig*.json          NOTE: root tsconfig is references-only — typecheck with `tsc -b`, not bare `tsc --noEmit` (which checks nothing)
