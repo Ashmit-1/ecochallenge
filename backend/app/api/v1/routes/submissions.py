@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, File, Path, Query, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, File, Path, Query, Response, UploadFile, status
 
 from app.api.deps import MAX_DB_INT, CurrentUser, SessionDep, VisionDep
 from app.core.config import get_settings
@@ -86,7 +85,7 @@ def get_my_submission(
 
 @router.get(
     "/submissions/{submission_id}/image",
-    response_class=FileResponse,
+    response_class=Response,
     summary="Your submitted photo (owner only)",
     responses={404: {"description": "Submission not found or not yours"}},
 )
@@ -94,11 +93,11 @@ def get_submission_image(
     submission_id: Annotated[int, Path(ge=1, le=MAX_DB_INT)],
     user: CurrentUser,
     session: SessionDep,
-) -> FileResponse:
+) -> Response:
     submission = submission_service.get_submission(session, user, submission_id)
-    path = storage_service.resolve_image_path(submission.image_path)
-    return FileResponse(
-        path,
+    # Works for both storage backends: a local file or an object in R2.
+    return Response(
+        content=storage_service.read_image(submission.image_path),
         media_type=submission.image_mime,
         headers={"Cache-Control": "private, max-age=3600"},
     )

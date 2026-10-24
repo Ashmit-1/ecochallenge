@@ -111,6 +111,11 @@ async def lifespan(_app: FastAPI):
             "VISION_PROVIDER=gemini but GEMINI_API_KEY is empty. "
             "Submissions will return 502 until a key is added, or set VISION_PROVIDER=mock."
         )
+    if settings.storage_backend == "r2" and not settings.r2_configured:
+        logger.warning(
+            "STORAGE_BACKEND=r2 but the R2 settings are incomplete. "
+            "Uploads and photo reads will fail until they are set."
+        )
     yield
 
 

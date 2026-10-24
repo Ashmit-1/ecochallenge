@@ -14,6 +14,7 @@ from app.core.config import get_settings
 from app.main import app
 from app.models import Submission, SubmissionStatus
 from app.models.base import utcnow
+from app.services import storage_service
 from app.vision.base import VisionProviderError
 from app.vision.factory import get_vision_provider
 from app.vision.mock import MockVisionProvider
@@ -216,6 +217,22 @@ def test_history_pagination(client: TestClient, register, submit, png):
     assert len(first_page) == 2
     assert len(second_page) == 1
     assert first_page[0]["id"] != second_page[0]["id"]
+
+
+def test_image_route_streams_from_the_configured_storage_backend(
+    client: TestClient, register, submit, monkeypatch
+):
+    """The route must not assume a local file, so R2 (no path on disk) works too."""
+    owner = register("R2 Owner")
+    created = submit(owner).json()["submission"]
+
+    monkeypatch.setattr(get_settings(), "storage_backend", "r2")
+    monkeypatch.setattr(storage_service, "read_image", lambda _path: b"object-from-r2")
+
+    response = client.get(f"/api/v1/submissions/{created['id']}/image", headers=owner.headers)
+    assert response.status_code == 200
+    assert response.content == b"object-from-r2"
+    assert response.headers["cache-control"] == "private, max-age=3600"
 
 
 def test_submission_detail_and_image_are_owner_only(

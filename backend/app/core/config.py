@@ -42,6 +42,17 @@ class Settings(BaseSettings):
     uploads_dir: Path = Path("./uploads")
     max_upload_mb: int = 6
 
+    # --- Photo storage ---
+    # "local" writes to UPLOADS_DIR (development). "r2" uses a Cloudflare R2 bucket, because
+    # Cloud Run's disk is ephemeral. Photos stay private either way: the API streams them.
+    storage_backend: Literal["local", "r2"] = "local"
+    r2_account_id: str = ""
+    # Optional override for S3-compatible testing (MinIO); empty derives the R2 endpoint.
+    r2_endpoint_url: str = ""
+    r2_bucket: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+
     # --- Browser session cookies (frontend uses httpOnly cookies, not localStorage) ---
     access_cookie_name: str = "ecochallenge_access"
     csrf_cookie_name: str = "ecochallenge_csrf"
@@ -103,6 +114,19 @@ class Settings(BaseSettings):
     @property
     def max_upload_bytes(self) -> int:
         return self.max_upload_mb * 1024 * 1024
+
+    @property
+    def r2_endpoint(self) -> str:
+        return self.r2_endpoint_url or f"https://{self.r2_account_id}.r2.cloudflarestorage.com"
+
+    @property
+    def r2_configured(self) -> bool:
+        return bool(
+            (self.r2_account_id or self.r2_endpoint_url)
+            and self.r2_bucket
+            and self.r2_access_key_id
+            and self.r2_secret_access_key
+        )
 
     @property
     def is_production(self) -> bool:

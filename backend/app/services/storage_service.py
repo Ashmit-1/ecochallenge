@@ -1,14 +1,20 @@
-"""Upload validation and local-disk storage.
+"""Upload validation and photo storage.
 
 Photos are private evidence, so they are never served statically. The DB stores a relative path
 (``{user_id}/{uuid}.{ext}``) and an authenticated route streams the bytes after an ownership check.
+
+Storage is local disk in development and Cloudflare R2 in production (``STORAGE_BACKEND``);
+Cloud Run's disk does not survive a restart. Both backends use the same relative paths, so a
+submission row does not record which backend wrote it.
 """
 
 from __future__ import annotations
 
 import uuid
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 from fastapi import HTTPException, status
 from PIL import Image, UnidentifiedImageError
@@ -94,11 +100,65 @@ def validate_image(data: bytes) -> str:
     return mime
 
 
+def _use_r2() -> bool:
+    return get_settings().storage_backend == "r2"
+
+
+@lru_cache(maxsize=1)
+def _r2_client() -> Any:
+    """S3-compatible client for Cloudflare R2.
+
+    Imported lazily so local development and the test suite never pay Boto3's import cost.
+    """
+    settings = get_settings()
+    missing = [
+        name
+        for name, value in (
+            ("R2_ENDPOINT", settings.r2_account_id or settings.r2_endpoint_url),
+            ("R2_BUCKET", settings.r2_bucket),
+            ("R2_ACCESS_KEY_ID", settings.r2_access_key_id),
+            ("R2_SECRET_ACCESS_KEY", settings.r2_secret_access_key),
+        )
+        if not value
+    ]
+    if missing:
+        raise RuntimeError(f"STORAGE_BACKEND=r2 but these settings are empty: {', '.join(missing)}.")
+
+    import boto3
+
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.r2_endpoint,
+        aws_access_key_id=settings.r2_access_key_id,
+        aws_secret_access_key=settings.r2_secret_access_key,
+        region_name="auto",
+    )
+
+
+def _is_missing_object(exc: Exception) -> bool:
+    """Recognise "the photo is not in the bucket" without swallowing real outages."""
+    from botocore.exceptions import ClientError
+
+    if not isinstance(exc, ClientError):
+        return False
+    return str(exc.response.get("Error", {}).get("Code")) in {"NoSuchKey", "404", "NotFound"}
+
+
 def save_image(data: bytes, mime: str, user_id: int) -> str:
-    """Write the file and return its path relative to the uploads root."""
+    """Write the photo and return its path relative to the storage root."""
     extension = _MIME_EXTENSIONS[mime]
     relative_path = f"{user_id}/{uuid.uuid4().hex}{extension}"
-    destination = get_settings().uploads_path / relative_path
+    settings = get_settings()
+    if _use_r2():
+        _r2_client().put_object(
+            Bucket=settings.r2_bucket,
+            Key=relative_path,
+            Body=data,
+            ContentType=mime,
+        )
+        return relative_path
+
+    destination = settings.uploads_path / relative_path
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(data)
     return relative_path
@@ -116,12 +176,27 @@ def resolve_image_path(relative_path: str) -> Path:
 
 
 def read_image(relative_path: str) -> bytes:
+    settings = get_settings()
+    if _use_r2():
+        try:
+            body = _r2_client().get_object(Bucket=settings.r2_bucket, Key=relative_path)["Body"]
+            return body.read()
+        except Exception as exc:  # noqa: BLE001 - a storage miss becomes a 404, outages re-raise
+            if _is_missing_object(exc):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found."
+                ) from exc
+            raise
     return resolve_image_path(relative_path).read_bytes()
 
 
 def delete_image(relative_path: str) -> None:
-    """Best-effort cleanup. Never raises: a leftover file is harmless."""
+    """Best-effort cleanup. Never raises: a leftover photo is harmless."""
     try:
-        (get_settings().uploads_path / relative_path).unlink(missing_ok=True)
-    except OSError:
+        settings = get_settings()
+        if _use_r2():
+            _r2_client().delete_object(Bucket=settings.r2_bucket, Key=relative_path)
+            return
+        (settings.uploads_path / relative_path).unlink(missing_ok=True)
+    except Exception:  # noqa: BLE001
         pass

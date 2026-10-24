@@ -59,3 +59,88 @@ def test_resolve_missing_file_is_404():
 
 def test_delete_is_best_effort_and_never_raises():
     storage_service.delete_image("0/never-existed.png")  # must not raise
+
+
+class _FakeBody:
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+
+    def read(self) -> bytes:
+        return self._data
+
+
+class _FakeR2:
+    """Just enough of the S3 client for the storage service."""
+
+    def __init__(self) -> None:
+        self.objects: dict[str, tuple[bytes, str]] = {}
+
+    def put_object(self, *, Bucket, Key, Body, ContentType):  # noqa: N803
+        self.objects[Key] = (Body, ContentType)
+
+    def get_object(self, *, Bucket, Key):  # noqa: N803
+        if Key not in self.objects:
+            from botocore.exceptions import ClientError
+
+            raise ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+        return {"Body": _FakeBody(self.objects[Key][0])}
+
+    def delete_object(self, *, Bucket, Key):  # noqa: N803
+        self.objects.pop(Key, None)
+
+
+@pytest.fixture()
+def r2(monkeypatch):
+    fake = _FakeR2()
+    settings = get_settings()
+    monkeypatch.setattr(settings, "storage_backend", "r2")
+    monkeypatch.setattr(settings, "r2_bucket", "ecochallenge-photos")
+    monkeypatch.setattr(storage_service, "_r2_client", lambda: fake)
+    return fake
+
+
+def test_r2_round_trip_saves_type_and_reads_bytes(r2):
+    relative = storage_service.save_image(b"\x89PNG\r\n\x1a\npayload", "image/png", 3)
+    assert relative.startswith("3/")
+    assert r2.objects[relative] == (b"\x89PNG\r\n\x1a\npayload", "image/png")
+    assert storage_service.read_image(relative) == b"\x89PNG\r\n\x1a\npayload"
+
+
+def test_r2_delete_removes_the_object(r2):
+    relative = storage_service.save_image(b"data", "image/jpeg", 3)
+    storage_service.delete_image(relative)
+    assert relative not in r2.objects
+
+
+def test_r2_missing_photo_is_404(r2):
+    with pytest.raises(HTTPException) as caught:
+        storage_service.read_image("3/missing.png")
+    assert caught.value.status_code == 404
+
+
+def test_r2_incomplete_configuration_fails_loudly(monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "storage_backend", "r2")
+    monkeypatch.setattr(settings, "r2_account_id", "")
+    monkeypatch.setattr(settings, "r2_endpoint_url", "")
+    storage_service._r2_client.cache_clear()
+    with pytest.raises(RuntimeError, match="R2_ENDPOINT"):
+        storage_service._r2_client()
+
+
+def test_r2_endpoint_derives_from_the_account_and_can_be_overridden():
+    from app.core.config import Settings
+
+    account = Settings(_env_file=None, secret_key="x", r2_account_id="abc123")
+    assert account.r2_endpoint == "https://abc123.r2.cloudflarestorage.com"
+
+    custom = Settings(
+        _env_file=None,
+        secret_key="x",
+        r2_endpoint_url="http://127.0.0.1:9000",
+        r2_bucket="photos",
+        r2_access_key_id="key",
+        r2_secret_access_key="secret",
+    )
+    assert custom.r2_endpoint == "http://127.0.0.1:9000"
+    assert custom.r2_configured
