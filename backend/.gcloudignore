@@ -1,0 +1,26 @@
+# Files excluded from `gcloud run deploy --source .` uploads.
+# Without this file gcloud falls back to .gitignore, which does not exist in backend/ — the local
+# .env (a real Gemini key) would otherwise be uploaded to Cloud Build. Never remove it.
+.env
+.env.*
+!.env.example
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+data/
+uploads/
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite3
+
+.DS_Store
+*.swp
