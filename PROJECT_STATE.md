@@ -37,12 +37,12 @@ unlocked once, the cooldown became active, and history recorded both attempts.
   - cooldown measured from **approval time**, enforced again under SQLite's write lock;
   - SHA-256 duplicate rejection; errored/abandoned rows retryable on the same challenge only;
   - private local storage, synchronous verification, points only on approval.
-- Live provider: `gemma-4-26b-a4b-it` via `GeminiVisionProvider`; `MockVisionProvider` offline.
+- Live providers: Cloudflare Workers AI / OpenAI-compatible (`OpenAIVisionProvider`), Google Gemini/Gemma (`GeminiVisionProvider`); `MockVisionProvider` offline.
 - Profile: points, attempts, approvals, distinct challenges, estimated CO₂, rank, badges.
 - Rule-based badges (6), new-badge reporting on approval.
 - Leaderboard with `RANK()`, shared ranks on ties, pagination, current-user flag.
 - Request-body limit and CSRF middleware.
-- 108 pytest tests, no network; `alembic check` reports no drift.
+- 117 pytest tests, no network; `alembic check` reports no drift.
 
 ## Evidence for the claims above
 

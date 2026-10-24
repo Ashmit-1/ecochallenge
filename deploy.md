@@ -216,8 +216,10 @@ as the Docker build context — which is what the Dockerfile expects. If the bui
 |---|---|
 | `ENVIRONMENT` | `production` (turns on `Secure` cookies) |
 | `DATABASE_URL` | `libsql://ecochallenge-ashmit-1.aws-ap-south-1.turso.io` |
-| `VISION_PROVIDER` | `gemini` (never `mock` in production) |
-| `GEMINI_MODEL` | `gemma-4-26b-a4b-it` |
+| `VISION_PROVIDER` | `openai` (or `gemini`) |
+| `OPENAI_BASE_URL` | `https://api.cloudflare.com/client/v4/accounts/<account_id>/ai/v1` (when using Cloudflare) |
+| `OPENAI_MODEL` | `@cf/meta/llama-3.2-11b-vision-instruct` (when using Cloudflare) |
+| `GEMINI_MODEL` | `gemma-4-26b-a4b-it` (when using `VISION_PROVIDER=gemini`) |
 | `STORAGE_BACKEND` | `r2` |
 | `R2_BUCKET` | `ecochallenge-photos` |
 | `R2_ACCOUNT_ID` | your Cloudflare account ID (or skip it and set `R2_ENDPOINT_URL=https://<account>.r2.cloudflarestorage.com`) |
@@ -228,7 +230,7 @@ as the Docker build context — which is what the Dockerfile expects. If the bui
 |---|---|
 | `SECRET_KEY` | `SECRET_KEY` |
 | Turso token | `TURSO_AUTH_TOKEN` |
-| Gemini key | `GEMINI_API_KEY` |
+| Cloudflare Workers AI token (or Gemini key) | `OPENAI_API_KEY` (or `GEMINI_API_KEY`) |
 | R2 access key ID | `R2_ACCESS_KEY_ID` |
 | R2 secret access key | `R2_SECRET_ACCESS_KEY` |
 
@@ -262,8 +264,8 @@ gcloud run deploy "$SERVICE" \
   --timeout 120 \
   --min-instances 0 \
   --max-instances 1 \
-  --set-env-vars "ENVIRONMENT=production,VISION_PROVIDER=gemini,GEMINI_MODEL=gemma-4-26b-a4b-it,STORAGE_BACKEND=r2,R2_ACCOUNT_ID=$R2_ACCOUNT_ID,R2_BUCKET=$R2_BUCKET,DATABASE_URL=$DATABASE_URL,CORS_ORIGINS=https://$PAGES_DOMAIN" \
-  --set-secrets "SECRET_KEY=ecochallenge-secret-key:latest,TURSO_AUTH_TOKEN=ecochallenge-turso-token:latest,GEMINI_API_KEY=ecochallenge-gemini-key:latest,R2_ACCESS_KEY_ID=ecochallenge-r2-key-id:latest,R2_SECRET_ACCESS_KEY=ecochallenge-r2-secret:latest"
+  --set-env-vars "^@^ENVIRONMENT=production@VISION_PROVIDER=openai@OPENAI_BASE_URL=https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/ai/v1@OPENAI_MODEL=@cf/meta/llama-3.2-11b-vision-instruct@STORAGE_BACKEND=r2@R2_ACCOUNT_ID=$R2_ACCOUNT_ID@R2_BUCKET=$R2_BUCKET@DATABASE_URL=$DATABASE_URL@CORS_ORIGINS=https://$PAGES_DOMAIN" \
+  --set-secrets "SECRET_KEY=ecochallenge-secret-key:latest,TURSO_AUTH_TOKEN=ecochallenge-turso-token:latest,OPENAI_API_KEY=ecochallenge-cloudflare-token:latest,R2_ACCESS_KEY_ID=ecochallenge-r2-key-id:latest,R2_SECRET_ACCESS_KEY=ecochallenge-r2-secret:latest"
 ```
 
 Notes on the flags:
